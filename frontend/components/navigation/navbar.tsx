@@ -15,6 +15,13 @@ import { getNavigationByRole } from '@/components/navigation/nav-config'
 import { MobileSidebar } from '@/components/navigation/mobile-sidebar'
 import { UserDropdown } from '@/components/navigation/user-dropdown'
 
+interface SearchTarget {
+  label: string
+  href: string
+  keywords: string[]
+  description?: string
+}
+
 export function AppNavbar() {
   const pathname = usePathname()
   const router = useRouter()
@@ -22,6 +29,8 @@ export function AppNavbar() {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [isSearchFocused, setIsSearchFocused] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -44,6 +53,109 @@ export function AppNavbar() {
   }, [])
 
   const navItems = useMemo(() => getNavigationByRole(user?.role), [user?.role])
+
+  const searchTargets = useMemo(() => {
+    const fromNav: SearchTarget[] = navItems.map((item) => ({
+      label: item.label,
+      href: item.href,
+      keywords: [item.label, item.href],
+      description: 'Navigation section',
+    }))
+
+    const curatedTargets: SearchTarget[] = [
+      {
+        label: 'Binary Search Visualizer',
+        href: '/binary-search',
+        keywords: ['binary', 'search', 'array', 'target'],
+        description: 'Find an element in a sorted list',
+      },
+      {
+        label: 'Experiments Workspace',
+        href: '/experiments',
+        keywords: ['experiments', 'runs', 'benchmarks'],
+        description: 'Run and compare algorithm experiments',
+      },
+    ]
+
+    const dedupedTargets = new Map<string, SearchTarget>()
+
+    ;[...fromNav, ...curatedTargets].forEach((target) => {
+      const existing = dedupedTargets.get(target.href)
+
+      if (!existing) {
+        dedupedTargets.set(target.href, target)
+        return
+      }
+
+      dedupedTargets.set(target.href, {
+        ...existing,
+        keywords: [...new Set([...existing.keywords, ...target.keywords])],
+        description: existing.description ?? target.description,
+      })
+    })
+
+    return Array.from(dedupedTargets.values())
+  }, [navItems])
+
+  const normalizedQuery = searchQuery.trim().toLowerCase()
+
+  const searchResults = useMemo(() => {
+    if (!normalizedQuery) {
+      return []
+    }
+
+    const terms = normalizedQuery.split(/\s+/)
+
+    return searchTargets
+      .map((target) => {
+        const searchableText = [
+          target.label,
+          target.href,
+          target.description ?? '',
+          target.keywords.join(' '),
+        ]
+          .join(' ')
+          .toLowerCase()
+
+        const matches = terms.every((term) => searchableText.includes(term))
+
+        if (!matches) {
+          return null
+        }
+
+        const label = target.label.toLowerCase()
+        const rank =
+          Number(!label.startsWith(normalizedQuery)) + Number(!label.includes(normalizedQuery))
+
+        return { target, rank }
+      })
+      .filter((entry): entry is { target: SearchTarget; rank: number } => entry !== null)
+      .sort((a, b) => a.rank - b.rank || a.target.label.localeCompare(b.target.label))
+      .slice(0, 6)
+      .map((entry) => entry.target)
+  }, [normalizedQuery, searchTargets])
+
+  useEffect(() => {
+    setSearchQuery('')
+    setIsSearchFocused(false)
+  }, [pathname])
+
+  const navigateFromSearch = (target: SearchTarget) => {
+    setSearchQuery('')
+    setIsSearchFocused(false)
+    router.push(target.href)
+  }
+
+  const handleSearchSubmit = () => {
+    const firstResult = searchResults[0]
+
+    if (!firstResult) {
+      toast('No matching section found')
+      return
+    }
+
+    navigateFromSearch(firstResult)
+  }
 
   const handleLogout = async () => {
     if (isLoggingOut) {
@@ -100,7 +212,60 @@ export function AppNavbar() {
                 placeholder="Search algorithms, datasets, reports..."
                 className="h-10 rounded-full border-border/45 bg-background/35 pl-9 pr-4"
                 aria-label="Search AlgoLab"
+                value={searchQuery}
+                autoComplete="off"
+                onChange={(event) => setSearchQuery(event.target.value)}
+                onFocus={() => setIsSearchFocused(true)}
+                onBlur={() => {
+                  window.setTimeout(() => {
+                    setIsSearchFocused(false)
+                  }, 120)
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    handleSearchSubmit()
+                  }
+
+                  if (event.key === 'Escape') {
+                    setSearchQuery('')
+                    setIsSearchFocused(false)
+                  }
+                }}
               />
+
+              {isSearchFocused && normalizedQuery && (
+                <div className="absolute left-0 right-0 top-12 z-50 overflow-hidden rounded-2xl border border-border/50 bg-background/95 shadow-xl backdrop-blur">
+                  {searchResults.length > 0 ? (
+                    <ul className="max-h-72 space-y-1 overflow-y-auto p-1.5">
+                      {searchResults.map((result) => (
+                        <li key={result.href}>
+                          <button
+                            type="button"
+                            className="flex w-full items-start justify-between gap-3 rounded-xl px-3 py-2 text-left transition-colors hover:bg-accent/70"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => navigateFromSearch(result)}
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-medium text-foreground">
+                                {result.label}
+                              </span>
+                              <span className="block truncate text-xs text-muted-foreground">
+                                {result.description ?? result.href}
+                              </span>
+                            </span>
+                            <span className="shrink-0 text-xs text-muted-foreground">Enter</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="px-4 py-3 text-sm text-muted-foreground">
+                      No matching section found.
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

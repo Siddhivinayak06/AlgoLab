@@ -21,6 +21,7 @@ import {
   quickSort,
   mergeSort,
   isSortAbortedError,
+  speedToDelayMs,
   type SortStep,
 } from '@/lib/algorithms'
 import { saveExperiment } from '@/lib/experiment-tracker'
@@ -54,6 +55,8 @@ interface AlgorithmInfo {
   bestCase: string
   spaceComplexity: string
 }
+
+type VisualStepType = NonNullable<SortStep['stepType']>
 
 const HOW_TO_STEPS = [
   {
@@ -103,6 +106,10 @@ const ALGORITHM_INFO: Record<SupportedAlgorithm, AlgorithmInfo> = {
     spaceComplexity: 'O(n)',
   },
 }
+
+const EXPLANATION_SPEED_THRESHOLD = 65
+const FAST_PACE_MESSAGE =
+  `Fast pace is active. Lower speed to ${EXPLANATION_SPEED_THRESHOLD} or below for detailed explanations.`
 
 function estimateBubblePass(comparisons: number, size: number) {
   if (size <= 1) {
@@ -156,6 +163,10 @@ function toDatasetLabel(source: DatasetGeneratorMeta['source'], datasetType?: Da
 }
 
 function buildStepExplanation(step: SortStep, algorithm: SupportedAlgorithm) {
+  if (step.note) {
+    return step.note
+  }
+
   const [leftIndex, rightIndex] = step.comparing
   const leftValue = typeof leftIndex === 'number' ? step.array[leftIndex] : undefined
   const rightValue = typeof rightIndex === 'number' ? step.array[rightIndex] : undefined
@@ -183,6 +194,54 @@ function buildStepExplanation(step: SortStep, algorithm: SupportedAlgorithm) {
     : 'Comparing elements to determine the next move.'
 }
 
+function toStepTypeLabel(stepType?: SortStep['stepType']) {
+  switch (stepType) {
+    case 'compare':
+      return 'Compare'
+    case 'swap':
+      return 'Swap'
+    case 'write':
+      return 'Write'
+    case 'copy':
+      return 'Copy'
+    case 'pivot':
+      return 'Pivot'
+    case 'done':
+      return 'Done'
+    default:
+      return 'Operation'
+  }
+}
+
+function toStepTypeBadgeClass(stepType?: SortStep['stepType']) {
+  switch (stepType) {
+    case 'compare':
+      return 'border-amber-400/40 bg-amber-400/10 text-amber-300'
+    case 'swap':
+      return 'border-red-400/40 bg-red-400/10 text-red-300'
+    case 'write':
+      return 'border-cyan-400/40 bg-cyan-400/10 text-cyan-300'
+    case 'copy':
+      return 'border-sky-400/40 bg-sky-400/10 text-sky-300'
+    case 'pivot':
+      return 'border-fuchsia-400/40 bg-fuchsia-400/10 text-fuchsia-300'
+    case 'done':
+      return 'border-emerald-400/40 bg-emerald-400/10 text-emerald-300'
+    default:
+      return 'border-border/40 bg-background/25 text-foreground/75'
+  }
+}
+
+function toCompactStepSummary(stepMessage: string, maxLength: number = 92) {
+  const normalized = stepMessage.replace(/^Review mode:\s*/i, '').replace(/\s+/g, ' ').trim()
+
+  if (normalized.length <= maxLength) {
+    return normalized
+  }
+
+  return `${normalized.slice(0, maxLength).trimEnd()}...`
+}
+
 export function AlgorithmVisualizer() {
   const [isGuideOpen, setIsGuideOpen] = useState(false)
   const [arraySize, setArraySize] = useState(30)
@@ -197,10 +256,14 @@ export function AlgorithmVisualizer() {
   const [isSwapStep, setIsSwapStep] = useState(false)
   const [sortedIndices, setSortedIndices] = useState<number[]>([])
   const [stepMessage, setStepMessage] = useState('Choose a dataset method to begin.')
-  const [speed, setSpeed] = useState(50)
+  const [speed, setSpeed] = useState(35)
   const [progress, setProgress] = useState(0)
   const [currentStep, setCurrentStep] = useState(0)
   const [currentHistoryIndex, setCurrentHistoryIndex] = useState(-1)
+  const [stepType, setStepType] = useState<VisualStepType | null>(null)
+  const [activeRange, setActiveRange] = useState<[number, number] | null>(null)
+  const [pivotIndex, setPivotIndex] = useState<number | null>(null)
+  const [writeIndex, setWriteIndex] = useState<number | null>(null)
   const [stats, setStats] = useState({
     comparisons: 0,
     swaps: 0,
@@ -215,6 +278,7 @@ export function AlgorithmVisualizer() {
   const stepForwardBudgetRef = useRef(0)
   const historyRef = useRef<SortStep[]>([])
   const swapsRef = useRef(0)
+  const speedRef = useRef(speed)
 
   const algorithmInfo = ALGORITHM_INFO[algorithm]
 
@@ -243,6 +307,10 @@ export function AlgorithmVisualizer() {
       setProgress(Math.round(((safeIndex + 1) / timeline.length) * 100))
       setCurrentHistoryIndex(safeIndex)
       setCurrentStep(safeIndex + 1)
+      setStepType(frame.stepType ?? null)
+      setActiveRange(frame.activeRange ?? null)
+      setPivotIndex(typeof frame.pivotIndex === 'number' ? frame.pivotIndex : null)
+      setWriteIndex(typeof frame.writeIndex === 'number' ? frame.writeIndex : null)
       setStepMessage(`Review mode: ${buildStepExplanation(frame, algorithm)}`)
     },
     [algorithm]
@@ -268,6 +336,10 @@ export function AlgorithmVisualizer() {
     setProgress(0)
     setCurrentStep(0)
     setCurrentHistoryIndex(-1)
+    setStepType(null)
+    setActiveRange(null)
+    setPivotIndex(null)
+    setWriteIndex(null)
     setIsRunning(false)
     setIsPaused(false)
     setIsSorted(false)
@@ -301,6 +373,10 @@ export function AlgorithmVisualizer() {
     setProgress(0)
     setCurrentStep(0)
     setCurrentHistoryIndex(-1)
+    setStepType(null)
+    setActiveRange(null)
+    setPivotIndex(null)
+    setWriteIndex(null)
     setIsRunning(false)
     setIsPaused(false)
     setIsSorted(false)
@@ -311,6 +387,47 @@ export function AlgorithmVisualizer() {
     )
     startTimeRef.current = null
   }, [])
+
+  const handleAlgorithmChange = useCallback((value: string) => {
+    const nextAlgorithm = value as SupportedAlgorithm
+
+    if (nextAlgorithm === algorithm) {
+      return
+    }
+
+    setAlgorithm(nextAlgorithm)
+
+    stopRequestedRef.current = true
+    isPausedRef.current = false
+    stepForwardBudgetRef.current = 0
+    historyRef.current = []
+    swapsRef.current = 0
+
+    const restored = initialDataset.length > 0 ? [...initialDataset] : []
+
+    setArray(restored)
+    setComparing([])
+    setIsSwapStep(false)
+    setSortedIndices([])
+    setStats({ comparisons: 0, swaps: 0, operations: 0, time: 0 })
+    setProgress(0)
+    setCurrentStep(0)
+    setCurrentHistoryIndex(-1)
+    setStepType(null)
+    setActiveRange(null)
+    setPivotIndex(null)
+    setWriteIndex(null)
+    setIsRunning(false)
+    setIsPaused(false)
+    setIsSorted(false)
+    startTimeRef.current = null
+
+    setStepMessage(
+      datasetLoaded
+        ? `${ALGORITHM_INFO[nextAlgorithm].name} selected. Press Start to run step-by-step.`
+        : 'Choose a dataset method to begin.'
+    )
+  }, [algorithm, datasetLoaded, initialDataset])
 
   const handleVisualizerStep = useCallback((step: SortStep) => {
     historyRef.current = [...historyRef.current, step]
@@ -326,11 +443,28 @@ export function AlgorithmVisualizer() {
 
     setCurrentHistoryIndex(latestHistoryIndex)
     setCurrentStep(latestHistoryIndex + 1)
+    setStepType(step.stepType ?? null)
+    setActiveRange(step.activeRange ?? null)
+    setPivotIndex(typeof step.pivotIndex === 'number' ? step.pivotIndex : null)
+    setWriteIndex(typeof step.writeIndex === 'number' ? step.writeIndex : null)
 
     const estimatedTotal = estimateTotalComparisons(algorithm, step.array.length)
     const nextProgress = Math.min(100, Math.round((step.comparisons / estimatedTotal) * 100))
     setProgress(nextProgress)
-    setStepMessage(buildStepExplanation(step, algorithm))
+
+    const detailedExplanationEnabled =
+      speedRef.current <= EXPLANATION_SPEED_THRESHOLD ||
+      isPausedRef.current ||
+      stepForwardBudgetRef.current > 0 ||
+      step.stepType === 'done'
+
+    if (detailedExplanationEnabled) {
+      setStepMessage(buildStepExplanation(step, algorithm))
+    } else {
+      setStepMessage((previous) =>
+        previous === FAST_PACE_MESSAGE ? previous : FAST_PACE_MESSAGE
+      )
+    }
 
     setStats({
       comparisons: step.comparisons,
@@ -349,6 +483,12 @@ export function AlgorithmVisualizer() {
     }
   }, [algorithm])
 
+  const handleSpeedChange = useCallback((values: number[]) => {
+    const nextSpeed = values[0] ?? 50
+    setSpeed(nextSpeed)
+    speedRef.current = nextSpeed
+  }, [])
+
   const runSort = useCallback(async () => {
     if (!datasetLoaded || array.length === 0 || isRunning) {
       return
@@ -364,6 +504,10 @@ export function AlgorithmVisualizer() {
     setProgress(0)
     setCurrentStep(0)
     setCurrentHistoryIndex(-1)
+    setStepType(null)
+    setActiveRange(null)
+    setPivotIndex(null)
+    setWriteIndex(null)
     setStats({ comparisons: 0, swaps: 0, operations: 0, time: 0 })
     setStepMessage('Sorting started. Follow comparisons and swaps in real time.')
 
@@ -372,6 +516,7 @@ export function AlgorithmVisualizer() {
     stepForwardBudgetRef.current = 0
     historyRef.current = []
     swapsRef.current = 0
+    speedRef.current = speed
 
     startTimeRef.current = Date.now()
     const arrayCopy = [...baseArray]
@@ -382,6 +527,7 @@ export function AlgorithmVisualizer() {
       const control = {
         shouldPause: () => isPausedRef.current && stepForwardBudgetRef.current <= 0,
         shouldStop: () => stopRequestedRef.current,
+        getSpeed: () => speedRef.current,
       }
 
       if (algorithm === 'bubble') {
@@ -401,6 +547,8 @@ export function AlgorithmVisualizer() {
           swapped: false,
           comparisons: result.comparisons,
           operations: result.operations,
+          stepType: 'done',
+          note: 'Sorting complete. All elements are in non-decreasing order.',
         }
 
         const lastFrame = historyRef.current[historyRef.current.length - 1]
@@ -425,6 +573,10 @@ export function AlgorithmVisualizer() {
         })
         setCurrentHistoryIndex(historyRef.current.length - 1)
         setCurrentStep(historyRef.current.length)
+        setStepType('done')
+        setActiveRange(null)
+        setPivotIndex(null)
+        setWriteIndex(null)
         setProgress(100)
         setIsSorted(true)
         setStepMessage('Sorting complete. All elements are in non-decreasing order.')
@@ -439,7 +591,7 @@ export function AlgorithmVisualizer() {
             operations: result.operations,
             dataType: dataType.toLowerCase(),
             metadata: {
-              speed,
+              speed: speedRef.current,
               totalSteps: historyRef.current.length,
             },
           })
@@ -547,6 +699,18 @@ export function AlgorithmVisualizer() {
   const maxValue = array.length > 0 ? Math.max(...array.map((value) => Math.abs(value))) : 1
   const barGapClass = array.length > 80 ? 'gap-px' : array.length > 45 ? 'gap-[2px]' : 'gap-0.5'
   const sortedLookup = new Set(sortedIndices)
+  const operationLabel = toStepTypeLabel(stepType ?? undefined)
+  const compactStepSummary = toCompactStepSummary(stepMessage)
+  const currentDelayMs = speedToDelayMs(speed)
+  const isFastExplanationMode = isRunning && !isPaused && speed > EXPLANATION_SPEED_THRESHOLD
+  const speedLabel =
+    speed <= 25
+      ? 'Teacher Pace'
+      : speed <= 50
+        ? 'Classroom Pace'
+        : speed <= 75
+          ? 'Balanced Pace'
+          : 'Fast Demo Pace'
   const labelInterval =
     array.length <= 24 ? 1 : array.length <= 40 ? 2 : array.length <= 70 ? 4 : 6
 
@@ -590,7 +754,7 @@ export function AlgorithmVisualizer() {
                 <Label className="text-foreground">Algorithm</Label>
                 <Select
                   value={algorithm}
-                  onValueChange={(value) => setAlgorithm(value as SupportedAlgorithm)}
+                  onValueChange={handleAlgorithmChange}
                   disabled={isRunning}
                 >
                   <SelectTrigger className="h-9 bg-input/45 border-border/50 text-foreground">
@@ -608,11 +772,10 @@ export function AlgorithmVisualizer() {
                 <Label className="text-foreground">Speed</Label>
                 <Slider
                   value={[speed]}
-                  onValueChange={(e) => setSpeed(e[0])}
+                  onValueChange={handleSpeedChange}
                   min={1}
                   max={100}
                   step={1}
-                  disabled={isRunning && !isPaused}
                   className="cursor-pointer"
                 />
                 <div className="flex items-center justify-between text-[11px] text-foreground/70">
@@ -620,6 +783,16 @@ export function AlgorithmVisualizer() {
                   <span className="font-mono tracking-wide text-foreground/60">&larr;─────●─────&rarr;</span>
                   <span>Fast</span>
                 </div>
+                <div className="flex items-center justify-between text-[11px] text-foreground/70">
+                  <span>{speedLabel}</span>
+                  <span>~{currentDelayMs} ms/step</span>
+                </div>
+                {isFastExplanationMode && (
+                  <p className="text-[11px] text-amber-300/90">
+                    Detailed explanation pauses in fast mode. Reduce speed to {EXPLANATION_SPEED_THRESHOLD} or below.
+                  </p>
+                )}
+                <p className="text-[11px] text-foreground/60">Speed changes apply immediately during playback.</p>
               </div>
             </div>
 
@@ -728,15 +901,46 @@ export function AlgorithmVisualizer() {
               <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-foreground/80">
                 Current Step Explanation
               </h3>
-              <Badge variant="outline" className="border-border/40 bg-background/25 text-foreground/75">
-                Step {currentStep}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className={cn('text-xs', toStepTypeBadgeClass(stepType ?? undefined))}>
+                  {operationLabel}
+                </Badge>
+                <Badge variant="outline" className="border-border/40 bg-background/25 text-foreground/75">
+                  Step {currentStep}
+                </Badge>
+              </div>
             </div>
 
             <p className="text-sm leading-relaxed text-foreground/85">{stepMessage}</p>
+            {algorithm === 'merge' && stepType === 'compare' && (
+              <p className="rounded-md border border-cyan-400/30 bg-cyan-400/10 px-2 py-1 text-xs text-cyan-100/90">
+                Merge Sort compares values from temporary partitions before writing into the main array.
+              </p>
+            )}
             <p className="text-xs text-foreground/65">
               Dataset Type: <span className="font-semibold text-foreground/85">{dataType}</span>
             </p>
+
+            <div className="grid grid-cols-1 gap-2 text-xs text-foreground/75 sm:grid-cols-3">
+              <div className="rounded-md border border-border/35 bg-background/20 px-2 py-1.5">
+                Active Range:{' '}
+                <span className="font-semibold text-foreground/90">
+                  {activeRange ? `${activeRange[0]}-${activeRange[1]}` : 'N/A'}
+                </span>
+              </div>
+              <div className="rounded-md border border-border/35 bg-background/20 px-2 py-1.5">
+                Pivot Index:{' '}
+                <span className="font-semibold text-foreground/90">
+                  {typeof pivotIndex === 'number' ? pivotIndex : 'N/A'}
+                </span>
+              </div>
+              <div className="rounded-md border border-border/35 bg-background/20 px-2 py-1.5">
+                Write Index:{' '}
+                <span className="font-semibold text-foreground/90">
+                  {typeof writeIndex === 'number' ? writeIndex : 'N/A'}
+                </span>
+              </div>
+            </div>
 
             <div className="pt-1">
               <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-foreground/65">Color Legend</p>
@@ -752,6 +956,14 @@ export function AlgorithmVisualizer() {
                 <div className="flex items-center gap-2 rounded-lg border border-border/30 bg-background/20 p-2 text-xs text-foreground/80">
                   <ArrowLeftRight className="size-4 text-red-500" />
                   <span>Red: Swapping</span>
+                </div>
+                <div className="flex items-center gap-2 rounded-lg border border-border/30 bg-background/20 p-2 text-xs text-foreground/80">
+                  <Circle className="size-4 text-fuchsia-400" />
+                  <span>Pink: Pivot</span>
+                </div>
+                <div className="flex items-center gap-2 rounded-lg border border-border/30 bg-background/20 p-2 text-xs text-foreground/80">
+                  <Circle className="size-4 text-cyan-400" />
+                  <span>Cyan: Merge Write</span>
                 </div>
                 <div className="flex items-center gap-2 rounded-lg border border-border/30 bg-background/20 p-2 text-xs text-foreground/80">
                   <CheckCircle2 className="size-4 text-green-500" />
@@ -784,6 +996,14 @@ export function AlgorithmVisualizer() {
               <Progress value={progress} className="h-2.5" />
             </div>
 
+            <div className="space-y-1 rounded-lg border border-border/30 bg-background/20 p-3">
+              <div className="flex items-center justify-between text-[11px] text-foreground/70">
+                <span>Step Summary</span>
+                <span>{operationLabel}</span>
+              </div>
+              <p className="text-xs leading-relaxed text-foreground/85">{compactStepSummary}</p>
+            </div>
+
             <div className={cn('flex min-h-[420px] h-[450px] xl:h-[500px] items-end justify-center rounded-xl border border-border/35 bg-input/20 p-4 shadow-inner', barGapClass)}>
               {array.length === 0 ? (
                 <p className="text-sm text-foreground/60">
@@ -793,6 +1013,10 @@ export function AlgorithmVisualizer() {
                 array.map((value, idx) => {
                   const isComparing = comparing.includes(idx)
                   const isSortedIdx = sortedLookup.has(idx)
+                  const isPivotIdx = typeof pivotIndex === 'number' && pivotIndex === idx
+                  const isWriteIdx = typeof writeIndex === 'number' && writeIndex === idx
+                  const isInActiveRange =
+                    !activeRange || (idx >= activeRange[0] && idx <= activeRange[1])
                   const normalizedValue = Math.abs(value)
                   const shouldShowLabel =
                     idx % labelInterval === 0 || isComparing || isSortedIdx || idx === array.length - 1
@@ -812,6 +1036,10 @@ export function AlgorithmVisualizer() {
                           height: `${(normalizedValue / maxValue) * 100}%`,
                           backgroundColor: isSortedIdx
                             ? 'rgb(34, 197, 94)'
+                            : isPivotIdx
+                              ? 'rgb(232, 121, 249)'
+                              : isWriteIdx
+                                ? 'rgb(34, 211, 238)'
                             : isComparing && isSwapStep
                               ? 'rgb(239, 68, 68)'
                               : isComparing
@@ -819,9 +1047,14 @@ export function AlgorithmVisualizer() {
                                 : 'rgb(59, 130, 246)',
                           boxShadow: isComparing
                             ? '0 0 16px rgba(250, 204, 21, 0.48)'
+                            : isPivotIdx
+                              ? '0 0 16px rgba(232, 121, 249, 0.45)'
+                              : isWriteIdx
+                                ? '0 0 16px rgba(34, 211, 238, 0.45)'
                             : isSortedIdx
                               ? '0 0 16px rgba(34, 197, 94, 0.45)'
                               : '0 0 0 rgba(0,0,0,0)',
+                          opacity: isInActiveRange ? 1 : 0.45,
                         }}
                         transition={{
                           type: 'spring',

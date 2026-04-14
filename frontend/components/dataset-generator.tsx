@@ -44,6 +44,8 @@ interface DatasetGeneratorProps {
   onDatasetReady: (data: number[], meta: DatasetGeneratorMeta) => void
   disabled?: boolean
   className?: string
+  hideTypeSelector?: boolean
+  hidePreview?: boolean
 }
 
 const RANDOM_MIN_SIZE = 5
@@ -187,6 +189,8 @@ export function DatasetGenerator({
   onDatasetReady,
   disabled = false,
   className,
+  hideTypeSelector = false,
+  hidePreview = false,
 }: DatasetGeneratorProps) {
   const [arraySize, setArraySize] = useState(30)
   const [minValue, setMinValue] = useState(1)
@@ -325,29 +329,31 @@ export function DatasetGenerator({
         </Button>
       </div>
 
-      <div className="space-y-2 rounded-lg border border-border/30 bg-background/20 p-3">
-        <Label className="text-xs font-medium uppercase tracking-[0.14em] text-foreground/80">Dataset Type</Label>
-        <div className="flex flex-wrap gap-2">
-          {DATASET_TYPE_OPTIONS.map((option) => (
-            <Button
-              key={option.value}
-              type="button"
-              variant={datasetType === option.value ? 'default' : 'outline'}
-              className={cn(
-                'h-8 rounded-full px-2.5 text-[11px]',
-                datasetType === option.value
-                  ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                  : 'border-border/50 bg-background/20'
-              )}
-              disabled={disabled}
-              onClick={() => setDatasetType(option.value)}
-            >
-              {option.icon}
-              {option.label}
-            </Button>
-          ))}
+      {!hideTypeSelector && (
+        <div className="space-y-2 rounded-lg border border-border/30 bg-background/20 p-3">
+          <Label className="text-xs font-medium uppercase tracking-[0.14em] text-foreground/80">Dataset Type</Label>
+          <div className="flex flex-wrap gap-2">
+            {DATASET_TYPE_OPTIONS.map((option) => (
+              <Button
+                key={option.value}
+                type="button"
+                variant={datasetType === option.value ? 'default' : 'outline'}
+                className={cn(
+                  'h-8 rounded-full px-2.5 text-[11px]',
+                  datasetType === option.value
+                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                    : 'border-border/50 bg-background/20'
+                )}
+                disabled={disabled}
+                onClick={() => setDatasetType(option.value)}
+              >
+                {option.icon}
+                {option.label}
+              </Button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="grid grid-cols-1 gap-3 rounded-lg border border-border/30 bg-background/20 p-3 md:grid-cols-[minmax(0,1fr)_5.8rem_5.8rem]">
         <div className="space-y-1.5">
@@ -431,32 +437,34 @@ export function DatasetGenerator({
         </div>
       )}
 
-      <div className="rounded-lg border border-border/30 bg-background/20 p-3">
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Dataset Preview</p>
-          <Badge variant="outline" className="border-border/50 bg-background/30 text-[11px] text-foreground/75">
-            {datasetStats.size > 0
-              ? `${datasetStats.size} items | min ${datasetStats.min} | max ${datasetStats.max}`
-              : 'No data'}
-          </Badge>
-        </div>
-        {preview.length === 0 ? (
-          <p className="text-sm text-foreground/60">No dataset generated yet.</p>
-        ) : (
-          <div className="max-h-20 overflow-y-auto pr-1">
-            <div className="flex flex-wrap gap-1.5">
-              {preview.map((value, index) => (
-                <span
-                  key={`${value}-${index}`}
-                  className="rounded-md border border-border/50 bg-background/45 px-2 py-0.5 font-mono text-[11px] text-foreground/85"
-                >
-                  {value}
-                </span>
-              ))}
-            </div>
+      {!hidePreview && (
+        <div className="rounded-lg border border-border/30 bg-background/20 p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Dataset Preview</p>
+            <Badge variant="outline" className="border-border/50 bg-background/30 text-[11px] text-foreground/75">
+              {datasetStats.size > 0
+                ? `${datasetStats.size} items | min ${datasetStats.min} | max ${datasetStats.max}`
+                : 'No data'}
+            </Badge>
           </div>
-        )}
-      </div>
+          {preview.length === 0 ? (
+            <p className="text-sm text-foreground/60">No dataset generated yet.</p>
+          ) : (
+            <div className="max-h-20 overflow-y-auto pr-1">
+              <div className="flex flex-wrap gap-1.5">
+                {preview.map((value, index) => (
+                  <span
+                    key={`${value}-${index}`}
+                    className="rounded-md border border-border/50 bg-background/45 px-2 py-0.5 font-mono text-[11px] text-foreground/85"
+                  >
+                    {value}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </Card>
   )
 }

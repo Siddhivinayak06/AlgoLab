@@ -22,7 +22,7 @@ interface SearchTarget {
   description?: string
 }
 
-export function AppNavbar() {
+export function AppNavbar({ onSidebarToggle }: { onSidebarToggle?: () => void }) {
   const pathname = usePathname()
   const router = useRouter()
 
@@ -176,16 +176,25 @@ export function AppNavbar() {
   }
 
   return (
-    <header className="sticky top-0 z-50 px-2 pt-3 sm:px-3">
+    <header className="sticky top-0 z-50 px-0">
       <motion.nav
         initial={{ opacity: 0, y: -14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, ease: 'easeOut' }}
-        className="mx-auto max-w-7xl rounded-2xl border border-border/40 bg-background/45 shadow-[0_10px_30px_rgba(0,0,0,0.2)] backdrop-blur-2xl"
+        className="mx-0 rounded-none border-b border-border/35 bg-background/55 shadow-[0_12px_30px_rgba(15,23,42,0.16)] backdrop-blur-2xl supports-[backdrop-filter]:bg-background/30"
         aria-label="Primary"
       >
         <div className="flex h-16 items-center justify-between gap-2 px-3 sm:px-4 lg:px-6">
-          <div className="flex items-center">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onSidebarToggle}
+              className="hidden lg:flex h-9 w-9 p-0"
+              aria-label="Toggle sidebar"
+            >
+              <Menu className="size-4" />
+            </Button>
             <Link
               href="/dashboard"
               className="group flex items-center gap-2 rounded-full px-2 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"

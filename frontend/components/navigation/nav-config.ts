@@ -11,6 +11,7 @@ import {
   LineChart,
   Shield,
   Users,
+  Search,
 } from 'lucide-react'
 
 import type { UserRole } from '@/lib/api'
@@ -33,9 +34,15 @@ const navigationCatalog: NavItem[] = [
     roles: ['student', 'instructor', 'admin'],
   },
   {
-    label: 'Algorithm Visualizer',
+    label: 'Sort Algorithms Visualiser',
     href: '/visualizer',
     icon: Gauge,
+    roles: ['student', 'instructor', 'admin'],
+  },
+  {
+    label: 'Search Algorithms Visualiser',
+    href: '/binary-search',
+    icon: Search,
     roles: ['student', 'instructor', 'admin'],
   },
   {

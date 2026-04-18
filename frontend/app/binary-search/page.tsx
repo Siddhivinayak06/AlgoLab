@@ -1,26 +1,34 @@
 'use client'
 
 import React from 'react'
-import { DashboardNav } from '@/components/dashboard-nav'
+import { WorkspaceShell } from '@/components/layout/workspace-shell'
 import { BinarySearchVisualizer } from '@/components/binary-search-visualizer'
 
 export default function BinarySearchPage() {
   return (
-    <main className="gradient-mesh min-h-screen">
-      <DashboardNav />
+    <WorkspaceShell
+      title="Binary Search Lab"
+      description="Visualize the logarithmic efficiency of searching in sorted data"
+      rightPanel={(
+        <section className="rounded-xl border border-border/30 bg-background/35 p-3">
+          <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+            Search Tips
+          </h3>
+          <ul className="mt-2 space-y-1.5 text-xs text-foreground/90">
+            <li>1. Select the search algorithm before running.</li>
+            <li>2. For sorted algorithms, let the tool auto-sort the dataset.</li>
+            <li>3. Use Pause + Next to inspect index movement step-by-step.</li>
+            <li>4. For BFS/DFS, keep dataset size moderate for a clearer tree view.</li>
+          </ul>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-foreground mb-2">
-            Binary Search Visualizer
-          </h1>
-          <p className="text-foreground/60">
-            Visualize binary search algorithm finding target values in sorted arrays
-          </p>
-        </div>
-
-        <BinarySearchVisualizer />
-      </div>
-    </main>
+          <div className="mt-3 rounded-lg border border-border/30 bg-background/40 p-2.5 text-xs text-foreground/80">
+            <p className="font-semibold text-foreground">Pro Tip</p>
+            <p className="mt-1">Use a present value first to understand traversal, then test a missing value to observe complete exploration.</p>
+          </div>
+        </section>
+      )}
+    >
+      <BinarySearchVisualizer />
+    </WorkspaceShell>
   )
 }

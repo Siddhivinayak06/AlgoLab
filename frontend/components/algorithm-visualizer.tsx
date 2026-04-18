@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useCallback, useRef } from 'react'
+import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -18,6 +18,13 @@ import {
 } from '@/components/ui/select'
 import {
   bubbleSort,
+  selectionSort,
+  insertionSort,
+  heapSort,
+  shellSort,
+  countingSort,
+  radixSort,
+  bucketSort,
   quickSort,
   mergeSort,
   isSortAbortedError,
@@ -38,14 +45,36 @@ import {
   RotateCcw,
   SkipBack,
   SkipForward,
+  Info,
+  Layers,
+  Settings2,
+  Trophy,
+  History as HistoryIcon,
+  HelpCircle,
 } from 'lucide-react'
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs'
 import {
   DatasetGenerator,
   type DatasetGeneratorMeta,
   type DatasetType,
 } from './dataset-generator'
 
-type SupportedAlgorithm = 'bubble' | 'quick' | 'merge'
+type SupportedAlgorithm =
+  | 'bubble'
+  | 'selection'
+  | 'insertion'
+  | 'merge'
+  | 'quick'
+  | 'heap'
+  | 'shell'
+  | 'counting'
+  | 'radix'
+  | 'bucket'
 
 interface AlgorithmInfo {
   name: string
@@ -65,7 +94,7 @@ const HOW_TO_STEPS = [
   },
   {
     title: 'Select Algorithm',
-    detail: 'Pick Bubble, Quick, or Merge Sort from the controls.',
+    detail: 'Pick any sorting algorithm from the controls.',
   },
   {
     title: 'Adjust Speed',
@@ -87,14 +116,23 @@ const ALGORITHM_INFO: Record<SupportedAlgorithm, AlgorithmInfo> = {
     bestCase: 'O(n)',
     spaceComplexity: 'O(1)',
   },
-  quick: {
-    name: 'Quick Sort',
+  selection: {
+    name: 'Selection Sort',
     description:
-      'Quick Sort chooses a pivot, partitions values into smaller groups, then recursively sorts each partition.',
+      'Selection Sort repeatedly finds the minimum value from the unsorted section and places it at the next sorted position.',
     worstCase: 'O(n^2)',
-    averageCase: 'O(n log n)',
-    bestCase: 'O(n log n)',
-    spaceComplexity: 'O(log n)',
+    averageCase: 'O(n^2)',
+    bestCase: 'O(n^2)',
+    spaceComplexity: 'O(1)',
+  },
+  insertion: {
+    name: 'Insertion Sort',
+    description:
+      'Insertion Sort builds a sorted prefix one element at a time by inserting each new value into its correct position.',
+    worstCase: 'O(n^2)',
+    averageCase: 'O(n^2)',
+    bestCase: 'O(n)',
+    spaceComplexity: 'O(1)',
   },
   merge: {
     name: 'Merge Sort',
@@ -104,6 +142,60 @@ const ALGORITHM_INFO: Record<SupportedAlgorithm, AlgorithmInfo> = {
     averageCase: 'O(n log n)',
     bestCase: 'O(n log n)',
     spaceComplexity: 'O(n)',
+  },
+  quick: {
+    name: 'Quick Sort',
+    description:
+      'Quick Sort chooses a pivot, partitions values into smaller groups, then recursively sorts each partition.',
+    worstCase: 'O(n^2)',
+    averageCase: 'O(n log n)',
+    bestCase: 'O(n log n)',
+    spaceComplexity: 'O(log n)',
+  },
+  heap: {
+    name: 'Heap Sort',
+    description:
+      'Heap Sort builds a max heap and repeatedly extracts the largest element to place it at the end of the array.',
+    worstCase: 'O(n log n)',
+    averageCase: 'O(n log n)',
+    bestCase: 'O(n log n)',
+    spaceComplexity: 'O(1)',
+  },
+  shell: {
+    name: 'Shell Sort',
+    description:
+      'Shell Sort performs insertion sort over progressively smaller gaps, improving efficiency on medium-sized datasets.',
+    worstCase: 'O(n^2)',
+    averageCase: 'O(n log n)',
+    bestCase: 'O(n log n)',
+    spaceComplexity: 'O(1)',
+  },
+  counting: {
+    name: 'Counting Sort',
+    description:
+      'Counting Sort counts occurrences of each value and reconstructs the sorted array without direct element comparisons.',
+    worstCase: 'O(n + k)',
+    averageCase: 'O(n + k)',
+    bestCase: 'O(n + k)',
+    spaceComplexity: 'O(n + k)',
+  },
+  radix: {
+    name: 'Radix Sort',
+    description:
+      'Radix Sort sorts numbers digit by digit, typically from least significant digit to most significant digit.',
+    worstCase: 'O(d(n + k))',
+    averageCase: 'O(d(n + k))',
+    bestCase: 'O(d(n + k))',
+    spaceComplexity: 'O(n + k)',
+  },
+  bucket: {
+    name: 'Bucket Sort',
+    description:
+      'Bucket Sort distributes values into buckets, sorts each bucket, and concatenates them for the final sorted order.',
+    worstCase: 'O(n^2)',
+    averageCase: 'O(n + k)',
+    bestCase: 'O(n + k)',
+    spaceComplexity: 'O(n + k)',
   },
 }
 
@@ -136,11 +228,18 @@ function estimateTotalComparisons(algorithm: SupportedAlgorithm, size: number) {
     return 1
   }
 
-  if (algorithm === 'bubble') {
-    return (size * (size - 1)) / 2
+  switch (algorithm) {
+    case 'bubble':
+    case 'selection':
+    case 'insertion':
+      return (size * (size - 1)) / 2
+    case 'counting':
+      return size * 2
+    case 'radix':
+      return size * 3
+    default:
+      return size * Math.log2(size)
   }
-
-  return size * Math.log2(size)
 }
 
 function toDatasetLabel(source: DatasetGeneratorMeta['source'], datasetType?: DatasetType) {
@@ -271,6 +370,7 @@ export function AlgorithmVisualizer() {
     time: 0,
   })
   const [isSorted, setIsSorted] = useState(false)
+  const [barsContainerWidth, setBarsContainerWidth] = useState(0)
 
   const startTimeRef = useRef<number | null>(null)
   const isPausedRef = useRef(false)
@@ -279,6 +379,7 @@ export function AlgorithmVisualizer() {
   const historyRef = useRef<SortStep[]>([])
   const swapsRef = useRef(0)
   const speedRef = useRef(speed)
+  const barsContainerRef = useRef<HTMLDivElement | null>(null)
 
   const algorithmInfo = ALGORITHM_INFO[algorithm]
 
@@ -532,10 +633,24 @@ export function AlgorithmVisualizer() {
 
       if (algorithm === 'bubble') {
         result = await bubbleSort(arrayCopy, handleVisualizerStep, speed, control)
-      } else if (algorithm === 'quick') {
-        result = await quickSort(arrayCopy, handleVisualizerStep, speed, control)
+      } else if (algorithm === 'selection') {
+        result = await selectionSort(arrayCopy, handleVisualizerStep, speed, control)
+      } else if (algorithm === 'insertion') {
+        result = await insertionSort(arrayCopy, handleVisualizerStep, speed, control)
       } else if (algorithm === 'merge') {
         result = await mergeSort(arrayCopy, handleVisualizerStep, speed, control)
+      } else if (algorithm === 'quick') {
+        result = await quickSort(arrayCopy, handleVisualizerStep, speed, control)
+      } else if (algorithm === 'heap') {
+        result = await heapSort(arrayCopy, handleVisualizerStep, speed, control)
+      } else if (algorithm === 'shell') {
+        result = await shellSort(arrayCopy, handleVisualizerStep, speed, control)
+      } else if (algorithm === 'counting') {
+        result = await countingSort(arrayCopy, handleVisualizerStep, speed, control)
+      } else if (algorithm === 'radix') {
+        result = await radixSort(arrayCopy, handleVisualizerStep, speed, control)
+      } else if (algorithm === 'bucket') {
+        result = await bucketSort(arrayCopy, handleVisualizerStep, speed, control)
       }
 
       if (result && !stopRequestedRef.current) {
@@ -711,304 +826,301 @@ export function AlgorithmVisualizer() {
         : speed <= 75
           ? 'Balanced Pace'
           : 'Fast Demo Pace'
-  const labelInterval =
-    array.length <= 24 ? 1 : array.length <= 40 ? 2 : array.length <= 70 ? 4 : 6
+  const labelInterval = useMemo(() => {
+    if (array.length <= 30 && barsContainerWidth > 0) {
+      const perBarWidth = barsContainerWidth / Math.max(array.length, 1)
+
+      if (perBarWidth >= 18) {
+        return 1
+      }
+    }
+
+    return array.length <= 24 ? 1 : array.length <= 40 ? 2 : array.length <= 70 ? 4 : 6
+  }, [array.length, barsContainerWidth])
+
+  useEffect(() => {
+    const container = barsContainerRef.current
+
+    if (!container || typeof ResizeObserver === 'undefined') {
+      return
+    }
+
+    const updateWidth = () => {
+      setBarsContainerWidth(container.clientWidth)
+    }
+
+    updateWidth()
+
+    const observer = new ResizeObserver(() => {
+      updateWidth()
+    })
+
+    observer.observe(container)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [])
 
   return (
-    <div className="space-y-4">
-      <Collapsible open={isGuideOpen} onOpenChange={setIsGuideOpen}>
-        <Card className="glass-card gap-3 p-3">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-foreground/85">How to Use</h2>
-            <CollapsibleTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 border-primary/35 bg-primary/10 text-primary hover:bg-primary/20">
-                Beginner Guide
-                <ChevronDown className={cn('ml-1.5 size-4 transition-transform', isGuideOpen && 'rotate-180')} />
-              </Button>
-            </CollapsibleTrigger>
-          </div>
-
-          <CollapsibleContent className="data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0">
-            <div className="grid grid-cols-1 gap-2 pt-1 sm:grid-cols-2">
-              {HOW_TO_STEPS.map((step, index) => (
-                <div key={step.title} className="rounded-lg border border-border/40 bg-background/25 p-2.5">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">Step {index + 1}</p>
-                  <p className="mt-1 text-sm font-semibold text-foreground">{step.title}</p>
-                  <p className="mt-1 text-xs text-foreground/70">{step.detail}</p>
-                </div>
-              ))}
-            </div>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
-
-      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(360px,35%)_minmax(0,65%)]">
-        <div className="order-2 space-y-4 xl:order-1">
-          <DatasetGenerator onDatasetReady={handleDatasetReady} disabled={isRunning} />
-
-          <Card className="glass-card gap-4 p-4">
-            <h2 className="text-lg font-bold text-foreground">Visualization Controls</h2>
-
-            <div className="grid grid-cols-1 gap-3">
-              <div className="space-y-2">
-                <Label className="text-foreground">Algorithm</Label>
-                <Select
-                  value={algorithm}
-                  onValueChange={handleAlgorithmChange}
-                  disabled={isRunning}
-                >
-                  <SelectTrigger className="h-9 bg-input/45 border-border/50 text-foreground">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-card border-border/50">
-                    <SelectItem value="bubble">Bubble Sort</SelectItem>
-                    <SelectItem value="quick">Quick Sort</SelectItem>
-                    <SelectItem value="merge">Merge Sort</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-foreground">Speed</Label>
-                <Slider
-                  value={[speed]}
-                  onValueChange={handleSpeedChange}
-                  min={1}
-                  max={100}
-                  step={1}
-                  className="cursor-pointer"
-                />
-                <div className="flex items-center justify-between text-[11px] text-foreground/70">
-                  <span>Slow</span>
-                  <span className="font-mono tracking-wide text-foreground/60">&larr;─────●─────&rarr;</span>
-                  <span>Fast</span>
-                </div>
-                <div className="flex items-center justify-between text-[11px] text-foreground/70">
-                  <span>{speedLabel}</span>
-                  <span>~{currentDelayMs} ms/step</span>
-                </div>
-                {isFastExplanationMode && (
-                  <p className="text-[11px] text-amber-300/90">
-                    Detailed explanation pauses in fast mode. Reduce speed to {EXPLANATION_SPEED_THRESHOLD} or below.
-                  </p>
-                )}
-                <p className="text-[11px] text-foreground/60">Speed changes apply immediately during playback.</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 2xl:grid-cols-3">
-              <Button
-                onClick={() => void runSort()}
-                disabled={!datasetLoaded || array.length === 0 || isRunning}
-                className="h-10 justify-center rounded-lg bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
-              >
-                <Play className="mr-2 size-4" />
-                Start
-              </Button>
-
-              <Button
-                onClick={pauseSort}
-                disabled={!isRunning || isPaused}
-                variant="outline"
-                className="h-10 justify-center rounded-lg border-border/50 text-foreground hover:bg-card/50"
-              >
-                <Pause className="mr-2 size-4" />
-                Pause
-              </Button>
-
-              <Button
-                onClick={resumeSort}
-                disabled={!isRunning || !isPaused}
-                variant="outline"
-                className="h-10 justify-center rounded-lg border-border/50 text-foreground hover:bg-card/50"
-              >
-                <Redo2 className="mr-2 size-4" />
-                Resume
-              </Button>
-
-              <Button
-                onClick={stepForward}
-                variant="outline"
-                disabled={(!isPaused && isRunning) || (!isRunning && currentHistoryIndex >= historyRef.current.length - 1)}
-                className="h-10 justify-center rounded-lg border-border/50 text-foreground hover:bg-card/50"
-              >
-                <SkipForward className="mr-2 size-4" />
-                <span className="hidden sm:inline">Step Forward</span>
-                <span className="sm:hidden">Forward</span>
-              </Button>
-
-              <Button
-                onClick={stepBackward}
-                variant="outline"
-                disabled={historyRef.current.length === 0 || currentHistoryIndex <= 0 || (isRunning && !isPaused)}
-                className="h-10 justify-center rounded-lg border-border/50 text-foreground hover:bg-card/50"
-              >
-                <SkipBack className="mr-2 size-4" />
-                <span className="hidden sm:inline">Step Backward</span>
-                <span className="sm:hidden">Backward</span>
-              </Button>
-
-              <Button
-                onClick={reset}
-                disabled={!datasetLoaded}
-                variant="outline"
-                className="h-10 justify-center rounded-lg border-border/50 text-foreground hover:bg-card/50"
-              >
-                <RotateCcw className="mr-2 size-4" />
-                Reset
-              </Button>
-            </div>
-
-            {!datasetLoaded && (
-              <p className="text-xs text-foreground/60">
-                Start stays disabled until a dataset is generated or loaded.
-              </p>
-            )}
-          </Card>
-
-          <Card className="glass-card gap-3 p-3">
-            <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-foreground/80">Live Metrics</h3>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              <div className="rounded-lg border border-border/35 bg-background/25 p-2.5">
-                <p className="text-[11px] text-foreground/60">Comparisons</p>
-                <p className="text-lg font-semibold text-primary">{stats.comparisons}</p>
-              </div>
-              <div className="rounded-lg border border-border/35 bg-background/25 p-2.5">
-                <p className="text-[11px] text-foreground/60">Swaps</p>
-                <p className="text-lg font-semibold text-orange-400">{stats.swaps}</p>
-              </div>
-              <div className="rounded-lg border border-border/35 bg-background/25 p-2.5">
-                <p className="text-[11px] text-foreground/60">Operations</p>
-                <p className="text-lg font-semibold text-accent">{stats.operations}</p>
-              </div>
-              <div className="rounded-lg border border-border/35 bg-background/25 p-2.5">
-                <p className="text-[11px] text-foreground/60">Execution Time</p>
-                <p className="text-lg font-semibold text-secondary">{stats.time}ms</p>
-              </div>
-              <div className="rounded-lg border border-border/35 bg-background/25 p-2.5">
-                <p className="text-[11px] text-foreground/60">Array Size</p>
-                <p className="text-lg font-semibold text-foreground">{arraySize}</p>
-              </div>
-              <div className="rounded-lg border border-border/35 bg-background/25 p-2.5">
-                <p className="text-[11px] text-foreground/60">Progress %</p>
-                <p className="text-lg font-semibold text-emerald-400">{progress}%</p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="glass-card gap-3 p-3">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-foreground/80">
-                Current Step Explanation
-              </h3>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className={cn('text-xs', toStepTypeBadgeClass(stepType ?? undefined))}>
-                  {operationLabel}
-                </Badge>
-                <Badge variant="outline" className="border-border/40 bg-background/25 text-foreground/75">
-                  Step {currentStep}
-                </Badge>
-              </div>
-            </div>
-
-            <p className="text-sm leading-relaxed text-foreground/85">{stepMessage}</p>
-            {algorithm === 'merge' && stepType === 'compare' && (
-              <p className="rounded-md border border-cyan-400/30 bg-cyan-400/10 px-2 py-1 text-xs text-cyan-100/90">
-                Merge Sort compares values from temporary partitions before writing into the main array.
-              </p>
-            )}
-            <p className="text-xs text-foreground/65">
-              Dataset Type: <span className="font-semibold text-foreground/85">{dataType}</span>
-            </p>
-
-            <div className="grid grid-cols-1 gap-2 text-xs text-foreground/75 sm:grid-cols-3">
-              <div className="rounded-md border border-border/35 bg-background/20 px-2 py-1.5">
-                Active Range:{' '}
-                <span className="font-semibold text-foreground/90">
-                  {activeRange ? `${activeRange[0]}-${activeRange[1]}` : 'N/A'}
-                </span>
-              </div>
-              <div className="rounded-md border border-border/35 bg-background/20 px-2 py-1.5">
-                Pivot Index:{' '}
-                <span className="font-semibold text-foreground/90">
-                  {typeof pivotIndex === 'number' ? pivotIndex : 'N/A'}
-                </span>
-              </div>
-              <div className="rounded-md border border-border/35 bg-background/20 px-2 py-1.5">
-                Write Index:{' '}
-                <span className="font-semibold text-foreground/90">
-                  {typeof writeIndex === 'number' ? writeIndex : 'N/A'}
-                </span>
-              </div>
-            </div>
-
-            <div className="pt-1">
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-foreground/65">Color Legend</p>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <div className="flex items-center gap-2 rounded-lg border border-border/30 bg-background/20 p-2 text-xs text-foreground/80">
-                  <Circle className="size-4 text-blue-500" />
-                  <span>Blue: Normal</span>
-                </div>
-                <div className="flex items-center gap-2 rounded-lg border border-border/30 bg-background/20 p-2 text-xs text-foreground/80">
-                  <ArrowLeftRight className="size-4 text-yellow-400" />
-                  <span>Yellow: Comparing</span>
-                </div>
-                <div className="flex items-center gap-2 rounded-lg border border-border/30 bg-background/20 p-2 text-xs text-foreground/80">
-                  <ArrowLeftRight className="size-4 text-red-500" />
-                  <span>Red: Swapping</span>
-                </div>
-                <div className="flex items-center gap-2 rounded-lg border border-border/30 bg-background/20 p-2 text-xs text-foreground/80">
-                  <Circle className="size-4 text-fuchsia-400" />
-                  <span>Pink: Pivot</span>
-                </div>
-                <div className="flex items-center gap-2 rounded-lg border border-border/30 bg-background/20 p-2 text-xs text-foreground/80">
-                  <Circle className="size-4 text-cyan-400" />
-                  <span>Cyan: Merge Write</span>
-                </div>
-                <div className="flex items-center gap-2 rounded-lg border border-border/30 bg-background/20 p-2 text-xs text-foreground/80">
-                  <CheckCircle2 className="size-4 text-green-500" />
-                  <span>Green: Sorted</span>
-                </div>
-              </div>
-            </div>
-          </Card>
+    <div className="flex flex-col gap-6">
+      {/* ── Top Metrics Bar ── */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="glass-card flex flex-col justify-center border-primary/20 p-3 text-center">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">Comparisons</p>
+          <p className="mt-1 text-xl font-bold text-primary">{stats.comparisons}</p>
         </div>
+        <div className="glass-card flex flex-col justify-center border-orange-500/20 p-3 text-center">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">Swaps</p>
+          <p className="mt-1 text-xl font-bold text-orange-400">{stats.swaps}</p>
+        </div>
+        <div className="glass-card flex flex-col justify-center border-purple-500/20 p-3 text-center">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">Operations</p>
+          <p className="mt-1 text-xl font-bold text-purple-400">{stats.operations}</p>
+        </div>
+        <div className="glass-card flex flex-col justify-center border-amber-500/20 p-3 text-center">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">Time</p>
+          <p className="mt-1 text-xl font-bold text-amber-400">{stats.time}ms</p>
+        </div>
+        <div className="glass-card flex flex-col justify-center border-blue-500/20 p-3 text-center">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">Array Size</p>
+          <p className="mt-1 text-xl font-bold text-blue-400">{arraySize}</p>
+        </div>
+        <div className="glass-card flex flex-col justify-center border-emerald-500/20 p-3 text-center overflow-hidden">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">Progress</p>
+          <div className="mt-2 flex items-center justify-center gap-2">
+            <span className="text-xl font-bold text-emerald-400">{progress}%</span>
+          </div>
+          <div className="mt-1 w-full h-1 bg-muted/30 rounded-full overflow-hidden">
+             <div className="h-full bg-emerald-400 transition-all duration-300" style={{ width: `${progress}%` }} />
+          </div>
+        </div>
+      </div>
 
-        <div className="order-1 self-start xl:order-2 xl:sticky xl:top-24">
-          <Card className="glass-card gap-3 p-4 shadow-[0_10px_34px_rgba(76,29,149,0.18)]">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-lg font-bold text-foreground">Visualization</h2>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[400px_1fr]">
+        {/* ── Left Sidebar / Operations Center ── */}
+        <aside className="flex flex-col gap-8">
+          <Card className="glass-card flex flex-col p-0 overflow-hidden border-primary/20">
+            <div className="bg-primary/10 border-b border-primary/20 px-5 py-4">
+               <div className="flex items-center gap-2">
+                  <Settings2 className="size-4 text-primary" />
+                  <h2 className="text-base font-bold text-foreground">Operations Center</h2>
+               </div>
+               <p className="mt-0.5 text-xs text-muted-foreground">Configure and control the visualization</p>
+            </div>
+
+            <Tabs defaultValue="algorithm" className="w-full">
+              <TabsList className="w-full rounded-none border-b border-border/20 bg-background/20 h-10 p-0">
+                <TabsTrigger value="dataset" className="flex-1 rounded-none text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary border-r border-border/20">
+                  <Layers className="mr-2 size-3.5" />
+                  Dataset
+                </TabsTrigger>
+                <TabsTrigger value="algorithm" className="flex-1 rounded-none text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+                  <Play className="mr-2 size-3.5" />
+                  Algorithm
+                </TabsTrigger>
+              </TabsList>
+
+              <div className="p-6">
+                <TabsContent value="dataset" className="mt-0 space-y-4">
+                  <DatasetGenerator onDatasetReady={handleDatasetReady} disabled={isRunning} hidePreview className="!p-0 !bg-transparent !border-0 !shadow-none" />
+                </TabsContent>
+
+                <TabsContent value="algorithm" className="mt-0 space-y-7">
+                  {/* Algorithm Selector */}
+                  <div className="space-y-3">
+                    <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">1. Select Algorithm</Label>
+                    <Select
+                      value={algorithm}
+                      onValueChange={handleAlgorithmChange}
+                      disabled={isRunning}
+                    >
+                      <SelectTrigger className="h-10 bg-input/20 border-border/50 text-foreground transition-all focus:ring-primary/40">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover/95 backdrop-blur-xl border-border/50">
+                        <SelectItem value="bubble">Bubble Sort</SelectItem>
+                        <SelectItem value="selection">Selection Sort</SelectItem>
+                        <SelectItem value="insertion">Insertion Sort</SelectItem>
+                        <SelectItem value="merge">Merge Sort</SelectItem>
+                        <SelectItem value="quick">Quick Sort</SelectItem>
+                        <SelectItem value="heap">Heap Sort</SelectItem>
+                        <SelectItem value="shell">Shell Sort</SelectItem>
+                        <SelectItem value="counting">Counting Sort</SelectItem>
+                        <SelectItem value="radix">Radix Sort</SelectItem>
+                        <SelectItem value="bucket">Bucket Sort</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Playback Controls */}
+                  <div className="space-y-3">
+                    <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">2. Playback Control</Label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button
+                        onClick={() => void runSort()}
+                        disabled={!datasetLoaded || array.length === 0 || isRunning}
+                        className="h-10 col-span-2 bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20"
+                      >
+                        <Play className="mr-2 size-4" />
+                        Start Visualization
+                      </Button>
+                      <Button
+                        onClick={pauseSort}
+                        disabled={!isRunning || isPaused}
+                        variant="outline"
+                        className="h-10 border-border/50 hover:bg-primary/10 hover:border-primary/30"
+                      >
+                        <Pause className="mr-2 size-4" />
+                        Pause
+                      </Button>
+                      <Button
+                        onClick={resumeSort}
+                        disabled={!isRunning || !isPaused}
+                        variant="outline"
+                        className="h-10 border-border/50 hover:bg-primary/10 hover:border-primary/30"
+                      >
+                        <Redo2 className="mr-2 size-4" />
+                        Resume
+                      </Button>
+                      <Button
+                        onClick={stepBackward}
+                        variant="outline"
+                        disabled={historyRef.current.length === 0 || currentHistoryIndex <= 0 || (isRunning && !isPaused)}
+                        className="h-10 border-border/50 hover:bg-primary/10 hover:border-primary/30"
+                      >
+                        <SkipBack className="mr-2 size-4" />
+                        Step Back
+                      </Button>
+                      <Button
+                        onClick={stepForward}
+                        variant="outline"
+                        disabled={(!isPaused && isRunning) || (!isRunning && currentHistoryIndex >= historyRef.current.length - 1)}
+                        className="h-10 border-border/50 hover:bg-primary/10 hover:border-primary/30"
+                      >
+                        <SkipForward className="mr-2 size-4" />
+                        Step Forward
+                      </Button>
+                      <Button
+                        onClick={reset}
+                        disabled={!datasetLoaded}
+                        variant="outline"
+                        className="h-10 col-span-2 border-border/50 hover:bg-destructive/10 hover:border-destructive/30"
+                      >
+                        <RotateCcw className="mr-2 size-4" />
+                        Reset Session
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Speed Controller */}
+                  <div className="space-y-4 pt-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">3. Animation Speed</Label>
+                      <Badge variant="outline" className="text-[10px] border-primary/20 text-primary">
+                        {speedLabel}
+                      </Badge>
+                    </div>
+                    <div className="px-1">
+                      <Slider
+                        value={[speed]}
+                        onValueChange={handleSpeedChange}
+                        min={1}
+                        max={100}
+                        step={1}
+                        className="py-4"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground px-1">
+                      <span>Slow</span>
+                      <span>~{currentDelayMs} ms/step</span>
+                      <span>Fast</span>
+                    </div>
+                    {isFastExplanationMode && (
+                      <div className="flex gap-2 rounded-lg bg-orange-500/10 border border-orange-500/20 p-2 text-[11px] text-orange-400">
+                      <Info className="size-3.5 shrink-0" />
+                      <p>Speed is too high for step-by-step notes. Reduce below {EXPLANATION_SPEED_THRESHOLD}.</p>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+              </div>
+            </Tabs>
+          </Card>
+
+          {/* Dataset Preview (Permanent) */}
+          <Card className={cn("glass-card p-5 space-y-3 transition-all", array.length === 0 && "opacity-50")}>
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary">
+                <Layers className="size-4 text-primary" />
+                <h3 className="text-sm font-bold text-foreground">Dataset Preview</h3>
+              </div>
+              <Badge variant="outline" className="text-[10px] border-border/50 bg-background/30">
+                {array.length} items
+              </Badge>
+            </div>
+            {array.length === 0 ? (
+               <p className="text-[11px] text-muted-foreground italic">No dataset generated yet.</p>
+            ) : (
+              <div className="max-h-40 overflow-y-auto pr-1">
+                <div className="flex flex-wrap gap-1.5">
+                  {array.map((value, index) => (
+                    <span
+                      key={`${value}-${index}`}
+                      className="rounded-md border border-border/50 bg-background/45 px-2 py-0.5 font-mono text-[11px] text-foreground/85"
+                    >
+                      {value}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </Card>
+
+          {/* Quick Info Card - REMOVED */}
+        </aside>
+
+        {/* ── Right Column: Visualization ── */}
+        <main className="flex flex-col gap-4">
+          <Card className="glass-card p-0 overflow-hidden flex flex-col shadow-[0_20px_50px_rgba(45,35,66,0.2)]">
+            {/* Viz Header */}
+            <div className="flex items-center justify-between px-6 py-3 bg-background/20 border-b border-border/20">
+              <div className="flex items-center gap-2">
+                <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                <h2 className="text-base font-bold text-foreground">Sorting Arena</h2>
+              </div>
+              <div className="flex items-center gap-3">
+                <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
                   {algorithmInfo.name}
                 </Badge>
-                <Badge variant="outline" className="border-border/40 bg-background/20 text-foreground/75">
-                  {progress}%
-                </Badge>
+                <div className="text-[11px] text-muted-foreground font-mono">
+                  {progress}% Complete
+                </div>
               </div>
             </div>
 
-            <div className="space-y-1.5 rounded-lg border border-border/30 bg-background/20 p-3">
-              <div className="flex items-center justify-between text-xs text-foreground/75">
-                <span>Sorting Progress</span>
-                <span>{progress}% complete</span>
-              </div>
-              <Progress value={progress} className="h-2.5" />
+            {/* Step Message bar */}
+            <div className="px-6 py-2 bg-primary/5 border-b border-primary/10 flex items-center gap-3">
+              <Info className="size-3.5 text-primary shrink-0" />
+              <p className="text-xs text-foreground/90 font-medium truncate">{stepMessage}</p>
             </div>
 
-            <div className="space-y-1 rounded-lg border border-border/30 bg-background/20 p-3">
-              <div className="flex items-center justify-between text-[11px] text-foreground/70">
-                <span>Step Summary</span>
-                <span>{operationLabel}</span>
-              </div>
-              <p className="text-xs leading-relaxed text-foreground/85">{compactStepSummary}</p>
-            </div>
-
-            <div className={cn('flex min-h-[420px] h-[450px] xl:h-[500px] items-end justify-center rounded-xl border border-border/35 bg-input/20 p-4 shadow-inner', barGapClass)}>
+            {/* Bars Area */}
+            <div
+              ref={barsContainerRef}
+              className={cn(
+                'h-80 flex items-end justify-center px-6 py-5 bg-gradient-to-b from-input/5 to-input/10 rounded-lg',
+                barGapClass
+              )}
+            >
               {array.length === 0 ? (
-                <p className="text-sm text-foreground/60">
-                  Generate a dataset on the left, then start visualization.
-                </p>
+                <div className="flex flex-col items-center gap-4 text-center opacity-50">
+                  <Layers className="size-12" />
+                  <div>
+                    <p className="text-lg font-bold">Workspace Empty</p>
+                    <p className="text-sm">Use the Dataset tab on the left to generate items.</p>
+                  </div>
+                </div>
               ) : (
                 array.map((value, idx) => {
                   const isComparing = comparing.includes(idx)
@@ -1018,20 +1130,16 @@ export function AlgorithmVisualizer() {
                   const isInActiveRange =
                     !activeRange || (idx >= activeRange[0] && idx <= activeRange[1])
                   const normalizedValue = Math.abs(value)
-                  const shouldShowLabel =
-                    idx % labelInterval === 0 || isComparing || isSortedIdx || idx === array.length - 1
+                  const shouldShowLabel = array.length <= 40 && (idx % labelInterval === 0 || isComparing || isSortedIdx)
 
                   return (
                     <div
                       key={idx}
-                      className="relative flex h-full min-w-0 flex-1 items-end pb-5"
-                      style={{
-                        flex: '1',
-                      }}
+                      className="relative flex h-full min-w-0 flex-1 items-end"
+                      style={{ flex: '1' }}
                     >
                       <motion.div
-                        className="w-full rounded-t"
-                        title={`Index ${idx + 1}: ${value}`}
+                        className="w-full rounded-t-md transition-shadow"
                         animate={{
                           height: `${(normalizedValue / maxValue) * 100}%`,
                           backgroundColor: isSortedIdx
@@ -1046,15 +1154,11 @@ export function AlgorithmVisualizer() {
                                 ? 'rgb(250, 204, 21)'
                                 : 'rgb(59, 130, 246)',
                           boxShadow: isComparing
-                            ? '0 0 16px rgba(250, 204, 21, 0.48)'
-                            : isPivotIdx
-                              ? '0 0 16px rgba(232, 121, 249, 0.45)'
-                              : isWriteIdx
-                                ? '0 0 16px rgba(34, 211, 238, 0.45)'
+                            ? '0 0 16px rgba(250, 204, 21, 0.6)'
                             : isSortedIdx
-                              ? '0 0 16px rgba(34, 197, 94, 0.45)'
-                              : '0 0 0 rgba(0,0,0,0)',
-                          opacity: isInActiveRange ? 1 : 0.45,
+                              ? '0 0 16px rgba(34, 197, 94, 0.5)'
+                              : '0 4px 12px rgba(59, 130, 246, 0.2)',
+                          opacity: isInActiveRange ? 1 : 0.3,
                         }}
                         transition={{
                           type: 'spring',
@@ -1063,9 +1167,8 @@ export function AlgorithmVisualizer() {
                           mass: 0.4,
                         }}
                       />
-
                       {shouldShowLabel && (
-                        <span className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 text-[10px] font-medium text-foreground/70">
+                        <span className="pointer-events-none absolute -bottom-6 left-1/2 -translate-x-1/2 text-[9px] font-mono font-bold text-foreground/85">
                           {value}
                         </span>
                       )}
@@ -1075,47 +1178,122 @@ export function AlgorithmVisualizer() {
               )}
             </div>
 
-            {isSorted && (
-              <motion.div
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="rounded-lg border border-primary/45 bg-primary/15 px-3 py-2 text-center"
-              >
-                <p className="text-sm font-semibold text-primary">Sorting complete. All elements are ordered.</p>
-              </motion.div>
-            )}
+            {/* Legend bar */}
+            <div className="px-6 py-3 bg-gradient-to-r from-background/50 to-primary/5 border-t border-border/30">
+               <div className="flex flex-wrap gap-x-6 gap-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="size-2 rounded-full bg-blue-500 shadow-lg shadow-blue-500/50" />
+                    <span className="text-[9px] uppercase font-bold text-muted-foreground">Unsorted</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="size-2 rounded-full bg-yellow-400 shadow-lg shadow-yellow-400/50" />
+                    <span className="text-[9px] uppercase font-bold text-muted-foreground">Compare</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="size-2 rounded-full bg-red-500 shadow-lg shadow-red-500/50" />
+                    <span className="text-[9px] uppercase font-bold text-muted-foreground">Swap</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="size-2 rounded-full bg-fuchsia-400 shadow-lg shadow-fuchsia-400/50" />
+                    <span className="text-[9px] uppercase font-bold text-muted-foreground">Pivot</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="size-2 rounded-full bg-cyan-400 shadow-lg shadow-cyan-400/50" />
+                    <span className="text-[9px] uppercase font-bold text-muted-foreground">Write</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="size-2 rounded-full bg-green-500 shadow-lg shadow-green-500/50" />
+                    <span className="text-[9px] uppercase font-bold text-muted-foreground">Sorted</span>
+                  </div>
+               </div>
+            </div>
+
+            {/* Summary Stats */}
+            <div className="px-6 py-3 bg-background/20 border-t border-border/20 space-y-2">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-muted-foreground uppercase font-bold">Operation</span>
+                <Badge variant="outline" className={cn('text-[8px] h-5', toStepTypeBadgeClass(stepType ?? undefined))}>
+                  {operationLabel}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-muted-foreground uppercase font-bold">Step</span>
+                <span className="font-mono text-primary font-bold">{currentStep}</span>
+              </div>
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-muted-foreground uppercase font-bold">Pivot/Write</span>
+                <span className="font-mono font-bold text-sm">
+                  {pivotIndex ?? 'None'} / {writeIndex ?? 'None'}
+                </span>
+              </div>
+            </div>
+
+            {/* Algorithm Info - Compact Version */}
+            <div className="px-6 py-3 bg-primary/5 border-t border-primary/10">
+              <h3 className="text-base font-bold text-primary mb-2">{algorithmInfo.name} Theory</h3>
+              <p className="text-sm text-foreground/70 leading-relaxed mb-3">{algorithmInfo.description}</p>
+              <div className="grid grid-cols-3 gap-3 mb-3">
+                <div className="p-2 rounded-lg border border-border/20 bg-background/30 flex flex-col gap-0.5">
+                  <span className="text-[9px] uppercase font-bold text-muted-foreground">Worst</span>
+                  <span className="text-sm font-bold text-red-400 font-mono">{algorithmInfo.worstCase}</span>
+                </div>
+                <div className="p-2 rounded-lg border border-border/20 bg-background/30 flex flex-col gap-0.5">
+                  <span className="text-[9px] uppercase font-bold text-muted-foreground">Avg</span>
+                  <span className="text-sm font-bold text-blue-400 font-mono">{algorithmInfo.averageCase}</span>
+                </div>
+                <div className="p-2 rounded-lg border border-border/20 bg-background/30 flex flex-col gap-0.5">
+                  <span className="text-[9px] uppercase font-bold text-muted-foreground">Best</span>
+                  <span className="text-sm font-bold text-emerald-400 font-mono">{algorithmInfo.bestCase}</span>
+                </div>
+              </div>
+              
+              {/* Space Complexity & Current Operation */}
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border/10">
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[9px] uppercase font-bold text-muted-foreground">Space</span>
+                  <span className="text-sm font-bold text-purple-400 font-mono">{algorithmInfo.spaceComplexity}</span>
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[9px] uppercase font-bold text-muted-foreground">Current Op</span>
+                  <Badge variant="outline" className={cn('text-[8px] h-5', toStepTypeBadgeClass(stepType ?? undefined))}>
+                    {operationLabel}
+                  </Badge>
+                </div>
+              </div>
+            </div>
           </Card>
-        </div>
+        </main>
       </div>
 
-      <Card className="glass-card gap-4 p-4">
-        <div>
-          <h2 className="text-xl font-bold text-foreground">Algorithm Information</h2>
-          <Badge variant="outline" className="mt-2 border-primary/40 bg-primary/10 text-primary">
-            {algorithmInfo.name}
-          </Badge>
-          <p className="mt-1.5 text-sm text-foreground/75">{algorithmInfo.description}</p>
-        </div>
-
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-lg border border-border/30 bg-background/25 p-3">
-            <p className="text-xs text-foreground/60">Worst Case</p>
-            <p className="mt-1 text-base font-semibold text-foreground">{algorithmInfo.worstCase}</p>
+      {/* beginner guide button floating or at bottom */}
+      <div className="flex justify-center">
+        <Collapsible open={isGuideOpen} onOpenChange={setIsGuideOpen} className="w-full">
+          <div className="flex justify-center mb-2">
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" className="text-muted-foreground text-xs hover:text-primary transition-colors">
+                <HelpCircle className="mr-2 size-3.5" />
+                Need help? View the Beginner's Guide
+                <ChevronDown className={cn('ml-1.5 size-3.5 transition-transform', isGuideOpen && 'rotate-180')} />
+              </Button>
+            </CollapsibleTrigger>
           </div>
-          <div className="rounded-lg border border-border/30 bg-background/25 p-3">
-            <p className="text-xs text-foreground/60">Average Case</p>
-            <p className="mt-1 text-base font-semibold text-foreground">{algorithmInfo.averageCase}</p>
-          </div>
-          <div className="rounded-lg border border-border/30 bg-background/25 p-3">
-            <p className="text-xs text-foreground/60">Best Case</p>
-            <p className="mt-1 text-base font-semibold text-foreground">{algorithmInfo.bestCase}</p>
-          </div>
-          <div className="rounded-lg border border-border/30 bg-background/25 p-3">
-            <p className="text-xs text-foreground/60">Space Complexity</p>
-            <p className="mt-1 text-base font-semibold text-foreground">{algorithmInfo.spaceComplexity}</p>
-          </div>
-        </div>
-      </Card>
+          <CollapsibleContent>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 pb-4">
+              {HOW_TO_STEPS.map((step, index) => (
+                <Card key={step.title} className="glass-card p-4 border-muted/30">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="flex size-6 items-center justify-center rounded-full bg-primary/20 text-primary text-xs font-bold">
+                      {index + 1}
+                    </span>
+                    <h4 className="text-sm font-bold">{step.title}</h4>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{step.detail}</p>
+                </Card>
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      </div>
     </div>
   )
 }

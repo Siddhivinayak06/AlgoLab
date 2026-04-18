@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useCallback, useRef } from 'react'
+import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -18,6 +18,13 @@ import {
 } from '@/components/ui/select'
 import {
   bubbleSort,
+  selectionSort,
+  insertionSort,
+  heapSort,
+  shellSort,
+  countingSort,
+  radixSort,
+  bucketSort,
   quickSort,
   mergeSort,
   isSortAbortedError,
@@ -57,7 +64,17 @@ import {
   type DatasetType,
 } from './dataset-generator'
 
-type SupportedAlgorithm = 'bubble' | 'quick' | 'merge'
+type SupportedAlgorithm =
+  | 'bubble'
+  | 'selection'
+  | 'insertion'
+  | 'merge'
+  | 'quick'
+  | 'heap'
+  | 'shell'
+  | 'counting'
+  | 'radix'
+  | 'bucket'
 
 interface AlgorithmInfo {
   name: string
@@ -77,7 +94,7 @@ const HOW_TO_STEPS = [
   },
   {
     title: 'Select Algorithm',
-    detail: 'Pick Bubble, Quick, or Merge Sort from the controls.',
+    detail: 'Pick any sorting algorithm from the controls.',
   },
   {
     title: 'Adjust Speed',
@@ -99,14 +116,23 @@ const ALGORITHM_INFO: Record<SupportedAlgorithm, AlgorithmInfo> = {
     bestCase: 'O(n)',
     spaceComplexity: 'O(1)',
   },
-  quick: {
-    name: 'Quick Sort',
+  selection: {
+    name: 'Selection Sort',
     description:
-      'Quick Sort chooses a pivot, partitions values into smaller groups, then recursively sorts each partition.',
+      'Selection Sort repeatedly finds the minimum value from the unsorted section and places it at the next sorted position.',
     worstCase: 'O(n^2)',
-    averageCase: 'O(n log n)',
-    bestCase: 'O(n log n)',
-    spaceComplexity: 'O(log n)',
+    averageCase: 'O(n^2)',
+    bestCase: 'O(n^2)',
+    spaceComplexity: 'O(1)',
+  },
+  insertion: {
+    name: 'Insertion Sort',
+    description:
+      'Insertion Sort builds a sorted prefix one element at a time by inserting each new value into its correct position.',
+    worstCase: 'O(n^2)',
+    averageCase: 'O(n^2)',
+    bestCase: 'O(n)',
+    spaceComplexity: 'O(1)',
   },
   merge: {
     name: 'Merge Sort',
@@ -116,6 +142,60 @@ const ALGORITHM_INFO: Record<SupportedAlgorithm, AlgorithmInfo> = {
     averageCase: 'O(n log n)',
     bestCase: 'O(n log n)',
     spaceComplexity: 'O(n)',
+  },
+  quick: {
+    name: 'Quick Sort',
+    description:
+      'Quick Sort chooses a pivot, partitions values into smaller groups, then recursively sorts each partition.',
+    worstCase: 'O(n^2)',
+    averageCase: 'O(n log n)',
+    bestCase: 'O(n log n)',
+    spaceComplexity: 'O(log n)',
+  },
+  heap: {
+    name: 'Heap Sort',
+    description:
+      'Heap Sort builds a max heap and repeatedly extracts the largest element to place it at the end of the array.',
+    worstCase: 'O(n log n)',
+    averageCase: 'O(n log n)',
+    bestCase: 'O(n log n)',
+    spaceComplexity: 'O(1)',
+  },
+  shell: {
+    name: 'Shell Sort',
+    description:
+      'Shell Sort performs insertion sort over progressively smaller gaps, improving efficiency on medium-sized datasets.',
+    worstCase: 'O(n^2)',
+    averageCase: 'O(n log n)',
+    bestCase: 'O(n log n)',
+    spaceComplexity: 'O(1)',
+  },
+  counting: {
+    name: 'Counting Sort',
+    description:
+      'Counting Sort counts occurrences of each value and reconstructs the sorted array without direct element comparisons.',
+    worstCase: 'O(n + k)',
+    averageCase: 'O(n + k)',
+    bestCase: 'O(n + k)',
+    spaceComplexity: 'O(n + k)',
+  },
+  radix: {
+    name: 'Radix Sort',
+    description:
+      'Radix Sort sorts numbers digit by digit, typically from least significant digit to most significant digit.',
+    worstCase: 'O(d(n + k))',
+    averageCase: 'O(d(n + k))',
+    bestCase: 'O(d(n + k))',
+    spaceComplexity: 'O(n + k)',
+  },
+  bucket: {
+    name: 'Bucket Sort',
+    description:
+      'Bucket Sort distributes values into buckets, sorts each bucket, and concatenates them for the final sorted order.',
+    worstCase: 'O(n^2)',
+    averageCase: 'O(n + k)',
+    bestCase: 'O(n + k)',
+    spaceComplexity: 'O(n + k)',
   },
 }
 
@@ -148,11 +228,18 @@ function estimateTotalComparisons(algorithm: SupportedAlgorithm, size: number) {
     return 1
   }
 
-  if (algorithm === 'bubble') {
-    return (size * (size - 1)) / 2
+  switch (algorithm) {
+    case 'bubble':
+    case 'selection':
+    case 'insertion':
+      return (size * (size - 1)) / 2
+    case 'counting':
+      return size * 2
+    case 'radix':
+      return size * 3
+    default:
+      return size * Math.log2(size)
   }
-
-  return size * Math.log2(size)
 }
 
 function toDatasetLabel(source: DatasetGeneratorMeta['source'], datasetType?: DatasetType) {
@@ -283,6 +370,7 @@ export function AlgorithmVisualizer() {
     time: 0,
   })
   const [isSorted, setIsSorted] = useState(false)
+  const [barsContainerWidth, setBarsContainerWidth] = useState(0)
 
   const startTimeRef = useRef<number | null>(null)
   const isPausedRef = useRef(false)
@@ -291,6 +379,7 @@ export function AlgorithmVisualizer() {
   const historyRef = useRef<SortStep[]>([])
   const swapsRef = useRef(0)
   const speedRef = useRef(speed)
+  const barsContainerRef = useRef<HTMLDivElement | null>(null)
 
   const algorithmInfo = ALGORITHM_INFO[algorithm]
 
@@ -544,10 +633,24 @@ export function AlgorithmVisualizer() {
 
       if (algorithm === 'bubble') {
         result = await bubbleSort(arrayCopy, handleVisualizerStep, speed, control)
-      } else if (algorithm === 'quick') {
-        result = await quickSort(arrayCopy, handleVisualizerStep, speed, control)
+      } else if (algorithm === 'selection') {
+        result = await selectionSort(arrayCopy, handleVisualizerStep, speed, control)
+      } else if (algorithm === 'insertion') {
+        result = await insertionSort(arrayCopy, handleVisualizerStep, speed, control)
       } else if (algorithm === 'merge') {
         result = await mergeSort(arrayCopy, handleVisualizerStep, speed, control)
+      } else if (algorithm === 'quick') {
+        result = await quickSort(arrayCopy, handleVisualizerStep, speed, control)
+      } else if (algorithm === 'heap') {
+        result = await heapSort(arrayCopy, handleVisualizerStep, speed, control)
+      } else if (algorithm === 'shell') {
+        result = await shellSort(arrayCopy, handleVisualizerStep, speed, control)
+      } else if (algorithm === 'counting') {
+        result = await countingSort(arrayCopy, handleVisualizerStep, speed, control)
+      } else if (algorithm === 'radix') {
+        result = await radixSort(arrayCopy, handleVisualizerStep, speed, control)
+      } else if (algorithm === 'bucket') {
+        result = await bucketSort(arrayCopy, handleVisualizerStep, speed, control)
       }
 
       if (result && !stopRequestedRef.current) {
@@ -723,8 +826,41 @@ export function AlgorithmVisualizer() {
         : speed <= 75
           ? 'Balanced Pace'
           : 'Fast Demo Pace'
-  const labelInterval =
-    array.length <= 24 ? 1 : array.length <= 40 ? 2 : array.length <= 70 ? 4 : 6
+  const labelInterval = useMemo(() => {
+    if (array.length <= 30 && barsContainerWidth > 0) {
+      const perBarWidth = barsContainerWidth / Math.max(array.length, 1)
+
+      if (perBarWidth >= 18) {
+        return 1
+      }
+    }
+
+    return array.length <= 24 ? 1 : array.length <= 40 ? 2 : array.length <= 70 ? 4 : 6
+  }, [array.length, barsContainerWidth])
+
+  useEffect(() => {
+    const container = barsContainerRef.current
+
+    if (!container || typeof ResizeObserver === 'undefined') {
+      return
+    }
+
+    const updateWidth = () => {
+      setBarsContainerWidth(container.clientWidth)
+    }
+
+    updateWidth()
+
+    const observer = new ResizeObserver(() => {
+      updateWidth()
+    })
+
+    observer.observe(container)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [])
 
   return (
     <div className="flex flex-col gap-6">
@@ -763,7 +899,7 @@ export function AlgorithmVisualizer() {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[400px_1fr]">
         {/* ── Left Sidebar / Operations Center ── */}
-        <aside className="flex flex-col gap-6">
+        <aside className="flex flex-col gap-8">
           <Card className="glass-card flex flex-col p-0 overflow-hidden border-primary/20">
             <div className="bg-primary/10 border-b border-primary/20 px-5 py-4">
                <div className="flex items-center gap-2">
@@ -785,12 +921,12 @@ export function AlgorithmVisualizer() {
                 </TabsTrigger>
               </TabsList>
 
-              <div className="p-5">
+              <div className="p-6">
                 <TabsContent value="dataset" className="mt-0 space-y-4">
                   <DatasetGenerator onDatasetReady={handleDatasetReady} disabled={isRunning} hidePreview className="!p-0 !bg-transparent !border-0 !shadow-none" />
                 </TabsContent>
 
-                <TabsContent value="algorithm" className="mt-0 space-y-6">
+                <TabsContent value="algorithm" className="mt-0 space-y-7">
                   {/* Algorithm Selector */}
                   <div className="space-y-3">
                     <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">1. Select Algorithm</Label>
@@ -804,8 +940,15 @@ export function AlgorithmVisualizer() {
                       </SelectTrigger>
                       <SelectContent className="bg-popover/95 backdrop-blur-xl border-border/50">
                         <SelectItem value="bubble">Bubble Sort</SelectItem>
-                        <SelectItem value="quick">Quick Sort</SelectItem>
+                        <SelectItem value="selection">Selection Sort</SelectItem>
+                        <SelectItem value="insertion">Insertion Sort</SelectItem>
                         <SelectItem value="merge">Merge Sort</SelectItem>
+                        <SelectItem value="quick">Quick Sort</SelectItem>
+                        <SelectItem value="heap">Heap Sort</SelectItem>
+                        <SelectItem value="shell">Shell Sort</SelectItem>
+                        <SelectItem value="counting">Counting Sort</SelectItem>
+                        <SelectItem value="radix">Radix Sort</SelectItem>
+                        <SelectItem value="bucket">Bucket Sort</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -813,7 +956,7 @@ export function AlgorithmVisualizer() {
                   {/* Playback Controls */}
                   <div className="space-y-3">
                     <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">2. Playback Control</Label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-3">
                       <Button
                         onClick={() => void runSort()}
                         disabled={!datasetLoaded || array.length === 0 || isRunning}
@@ -906,7 +1049,7 @@ export function AlgorithmVisualizer() {
           </Card>
 
           {/* Dataset Preview (Permanent) */}
-          <Card className={cn("glass-card p-4 space-y-3 transition-all", array.length === 0 && "opacity-50")}>
+          <Card className={cn("glass-card p-5 space-y-3 transition-all", array.length === 0 && "opacity-50")}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Layers className="size-4 text-primary" />
@@ -919,7 +1062,7 @@ export function AlgorithmVisualizer() {
             {array.length === 0 ? (
                <p className="text-[11px] text-muted-foreground italic">No dataset generated yet.</p>
             ) : (
-              <div className="max-h-32 overflow-y-auto pr-1">
+              <div className="max-h-40 overflow-y-auto pr-1">
                 <div className="flex flex-wrap gap-1.5">
                   {array.map((value, index) => (
                     <span
@@ -934,38 +1077,14 @@ export function AlgorithmVisualizer() {
             )}
           </Card>
 
-          {/* Quick Info Card */}
-          <Card className="glass-card p-5 space-y-4">
-            <div className="flex items-center gap-2">
-              <HelpCircle className="size-4 text-purple-400" />
-              <h3 className="text-sm font-bold text-foreground">Current State</h3>
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Operation</span>
-                <Badge variant="outline" className={cn('text-[10px]', toStepTypeBadgeClass(stepType ?? undefined))}>
-                  {operationLabel}
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Current Step</span>
-                <span className="font-mono text-primary">{currentStep}</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Pivot/Write</span>
-                <span className="font-mono">
-                  {pivotIndex ?? 'None'} / {writeIndex ?? 'None'}
-                </span>
-              </div>
-            </div>
-          </Card>
+          {/* Quick Info Card - REMOVED */}
         </aside>
 
         {/* ── Right Column: Visualization ── */}
-        <main className="flex flex-col gap-6">
-          <Card className="glass-card h-full p-0 overflow-hidden flex flex-col shadow-[0_20px_50px_rgba(45,35,66,0.2)]">
+        <main className="flex flex-col gap-4">
+          <Card className="glass-card p-0 overflow-hidden flex flex-col shadow-[0_20px_50px_rgba(45,35,66,0.2)]">
             {/* Viz Header */}
-            <div className="flex items-center justify-between px-6 py-4 bg-background/20 border-b border-border/20">
+            <div className="flex items-center justify-between px-6 py-3 bg-background/20 border-b border-border/20">
               <div className="flex items-center gap-2">
                 <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
                 <h2 className="text-base font-bold text-foreground">Sorting Arena</h2>
@@ -981,16 +1100,19 @@ export function AlgorithmVisualizer() {
             </div>
 
             {/* Step Message bar */}
-            <div className="px-6 py-3 bg-primary/5 border-b border-primary/10 flex items-center gap-3">
-              <Info className="size-4 text-primary shrink-0" />
-              <p className="text-sm text-foreground/90 font-medium truncate">{stepMessage}</p>
+            <div className="px-6 py-2 bg-primary/5 border-b border-primary/10 flex items-center gap-3">
+              <Info className="size-3.5 text-primary shrink-0" />
+              <p className="text-xs text-foreground/90 font-medium truncate">{stepMessage}</p>
             </div>
 
             {/* Bars Area */}
-            <div className={cn(
-              'flex-1 flex items-end justify-center px-6 py-8 min-h-[460px] bg-input/5',
-              barGapClass
-            )}>
+            <div
+              ref={barsContainerRef}
+              className={cn(
+                'h-80 flex items-end justify-center px-6 py-5 bg-gradient-to-b from-input/5 to-input/10 rounded-lg',
+                barGapClass
+              )}
+            >
               {array.length === 0 ? (
                 <div className="flex flex-col items-center gap-4 text-center opacity-50">
                   <Layers className="size-12" />
@@ -1017,7 +1139,7 @@ export function AlgorithmVisualizer() {
                       style={{ flex: '1' }}
                     >
                       <motion.div
-                        className="w-full rounded-t-sm"
+                        className="w-full rounded-t-md transition-shadow"
                         animate={{
                           height: `${(normalizedValue / maxValue) * 100}%`,
                           backgroundColor: isSortedIdx
@@ -1032,11 +1154,11 @@ export function AlgorithmVisualizer() {
                                 ? 'rgb(250, 204, 21)'
                                 : 'rgb(59, 130, 246)',
                           boxShadow: isComparing
-                            ? '0 0 12px rgba(250, 204, 21, 0.4)'
+                            ? '0 0 16px rgba(250, 204, 21, 0.6)'
                             : isSortedIdx
-                              ? '0 0 12px rgba(34, 197, 94, 0.3)'
-                              : '0 0 0 rgba(0,0,0,0)',
-                          opacity: isInActiveRange ? 1 : 0.35,
+                              ? '0 0 16px rgba(34, 197, 94, 0.5)'
+                              : '0 4px 12px rgba(59, 130, 246, 0.2)',
+                          opacity: isInActiveRange ? 1 : 0.3,
                         }}
                         transition={{
                           type: 'spring',
@@ -1046,7 +1168,7 @@ export function AlgorithmVisualizer() {
                         }}
                       />
                       {shouldShowLabel && (
-                        <span className="pointer-events-none absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] font-mono font-bold text-foreground/50">
+                        <span className="pointer-events-none absolute -bottom-6 left-1/2 -translate-x-1/2 text-[9px] font-mono font-bold text-foreground/85">
                           {value}
                         </span>
                       )}
@@ -1057,67 +1179,91 @@ export function AlgorithmVisualizer() {
             </div>
 
             {/* Legend bar */}
-            <div className="px-6 py-4 bg-background/30 border-t border-border/20">
+            <div className="px-6 py-3 bg-gradient-to-r from-background/50 to-primary/5 border-t border-border/30">
                <div className="flex flex-wrap gap-x-6 gap-y-2">
                   <div className="flex items-center gap-2">
-                    <div className="size-2 rounded-full bg-blue-500" />
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground">Unsorted</span>
+                    <div className="size-2 rounded-full bg-blue-500 shadow-lg shadow-blue-500/50" />
+                    <span className="text-[9px] uppercase font-bold text-muted-foreground">Unsorted</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="size-2 rounded-full bg-yellow-400" />
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground">Compare</span>
+                    <div className="size-2 rounded-full bg-yellow-400 shadow-lg shadow-yellow-400/50" />
+                    <span className="text-[9px] uppercase font-bold text-muted-foreground">Compare</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="size-2 rounded-full bg-red-500" />
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground">Swap</span>
+                    <div className="size-2 rounded-full bg-red-500 shadow-lg shadow-red-500/50" />
+                    <span className="text-[9px] uppercase font-bold text-muted-foreground">Swap</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="size-2 rounded-full bg-fuchsia-400" />
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground">Pivot</span>
+                    <div className="size-2 rounded-full bg-fuchsia-400 shadow-lg shadow-fuchsia-400/50" />
+                    <span className="text-[9px] uppercase font-bold text-muted-foreground">Pivot</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="size-2 rounded-full bg-cyan-400" />
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground">Write</span>
+                    <div className="size-2 rounded-full bg-cyan-400 shadow-lg shadow-cyan-400/50" />
+                    <span className="text-[9px] uppercase font-bold text-muted-foreground">Write</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="size-2 rounded-full bg-green-500" />
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground">Sorted</span>
+                    <div className="size-2 rounded-full bg-green-500 shadow-lg shadow-green-500/50" />
+                    <span className="text-[9px] uppercase font-bold text-muted-foreground">Sorted</span>
                   </div>
                </div>
+            </div>
+
+            {/* Summary Stats */}
+            <div className="px-6 py-3 bg-background/20 border-t border-border/20 space-y-2">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-muted-foreground uppercase font-bold">Operation</span>
+                <Badge variant="outline" className={cn('text-[8px] h-5', toStepTypeBadgeClass(stepType ?? undefined))}>
+                  {operationLabel}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-muted-foreground uppercase font-bold">Step</span>
+                <span className="font-mono text-primary font-bold">{currentStep}</span>
+              </div>
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-muted-foreground uppercase font-bold">Pivot/Write</span>
+                <span className="font-mono font-bold text-sm">
+                  {pivotIndex ?? 'None'} / {writeIndex ?? 'None'}
+                </span>
+              </div>
+            </div>
+
+            {/* Algorithm Info - Compact Version */}
+            <div className="px-6 py-3 bg-primary/5 border-t border-primary/10">
+              <h3 className="text-base font-bold text-primary mb-2">{algorithmInfo.name} Theory</h3>
+              <p className="text-sm text-foreground/70 leading-relaxed mb-3">{algorithmInfo.description}</p>
+              <div className="grid grid-cols-3 gap-3 mb-3">
+                <div className="p-2 rounded-lg border border-border/20 bg-background/30 flex flex-col gap-0.5">
+                  <span className="text-[9px] uppercase font-bold text-muted-foreground">Worst</span>
+                  <span className="text-sm font-bold text-red-400 font-mono">{algorithmInfo.worstCase}</span>
+                </div>
+                <div className="p-2 rounded-lg border border-border/20 bg-background/30 flex flex-col gap-0.5">
+                  <span className="text-[9px] uppercase font-bold text-muted-foreground">Avg</span>
+                  <span className="text-sm font-bold text-blue-400 font-mono">{algorithmInfo.averageCase}</span>
+                </div>
+                <div className="p-2 rounded-lg border border-border/20 bg-background/30 flex flex-col gap-0.5">
+                  <span className="text-[9px] uppercase font-bold text-muted-foreground">Best</span>
+                  <span className="text-sm font-bold text-emerald-400 font-mono">{algorithmInfo.bestCase}</span>
+                </div>
+              </div>
+              
+              {/* Space Complexity & Current Operation */}
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border/10">
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[9px] uppercase font-bold text-muted-foreground">Space</span>
+                  <span className="text-sm font-bold text-purple-400 font-mono">{algorithmInfo.spaceComplexity}</span>
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[9px] uppercase font-bold text-muted-foreground">Current Op</span>
+                  <Badge variant="outline" className={cn('text-[8px] h-5', toStepTypeBadgeClass(stepType ?? undefined))}>
+                    {operationLabel}
+                  </Badge>
+                </div>
+              </div>
             </div>
           </Card>
         </main>
       </div>
-
-      {/* ── Algorithm Info Section ── */}
-      <Card className="glass-card p-0 border-primary/20 overflow-hidden">
-        <div className="bg-primary/10 px-6 py-4 flex items-center justify-between border-b border-primary/20">
-           <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/20 rounded-lg text-primary">
-                <Info className="size-5" />
-              </div>
-              <h2 className="text-xl font-bold text-foreground">{algorithmInfo.name} Theory</h2>
-           </div>
-           <Badge className="bg-primary text-primary-foreground">{algorithmInfo.spaceComplexity} Space</Badge>
-        </div>
-        <div className="p-6">
-          <p className="text-base text-foreground/80 leading-relaxed max-w-4xl">{algorithmInfo.description}</p>
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-             <div className="p-4 rounded-xl border border-border/20 bg-background/30 flex flex-col gap-1">
-                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-[0.2em]">Worst Case</span>
-                <span className="text-2xl font-bold text-red-400 font-mono">{algorithmInfo.worstCase}</span>
-             </div>
-             <div className="p-4 rounded-xl border border-border/20 bg-background/30 flex flex-col gap-1">
-                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-[0.2em]">Average Case</span>
-                <span className="text-2xl font-bold text-blue-400 font-mono">{algorithmInfo.averageCase}</span>
-             </div>
-             <div className="p-4 rounded-xl border border-border/20 bg-background/30 flex flex-col gap-1">
-                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-[0.2em]">Best Case</span>
-                <span className="text-2xl font-bold text-emerald-400 font-mono">{algorithmInfo.bestCase}</span>
-             </div>
-          </div>
-        </div>
-      </Card>
 
       {/* beginner guide button floating or at bottom */}
       <div className="flex justify-center">

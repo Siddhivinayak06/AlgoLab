@@ -296,8 +296,8 @@ export default function DashboardPage() {
                 {isLoading
                   ? 'Fetching your stats…'
                   : summary.totalExperiments === 0
-                  ? 'Run your first experiment to get started.'
-                  : `You have run ${summary.totalExperiments} experiment${summary.totalExperiments !== 1 ? 's' : ''} so far. Keep going!`}
+                    ? 'Run your first experiment to get started.'
+                    : `You have run ${summary.totalExperiments} experiment${summary.totalExperiments !== 1 ? 's' : ''} so far. Keep going!`}
               </p>
             </div>
             <Link href="/experiments">

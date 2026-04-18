@@ -32,37 +32,161 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  linearSearch,
   binarySearch,
-  generateSortedArray,
+  jumpSearch,
+  interpolationSearch,
+  exponentialSearch,
+  fibonacciSearch,
+  bfsSearch,
+  dfsSearch,
   type SortStep,
   type SortExecutionControl,
+  type SearchResult,
   isSortAbortedError,
 } from '@/lib/algorithms'
 import { cn } from '@/lib/utils'
 import { DatasetGenerator, type DatasetGeneratorMeta } from './dataset-generator'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 
+type SearchAlgorithm =
+  | 'binary'
+  | 'linear'
+  | 'jump'
+  | 'interpolation'
+  | 'exponential'
+  | 'fibonacci'
+  | 'bfs'
+  | 'dfs'
+
+interface SearchAlgorithmInfo {
+  name: string
+  description: string
+  requiresSorted: boolean
+  worstCase: string
+  averageCase: string
+  bestCase: string
+  spaceComplexity: string
+}
+
+const SEARCH_ALGORITHM_INFO: Record<SearchAlgorithm, SearchAlgorithmInfo> = {
+  binary: {
+    name: 'Binary Search',
+    description:
+      'Binary Search repeatedly splits a sorted array in half to discard impossible regions quickly.',
+    requiresSorted: true,
+    worstCase: 'O(log n)',
+    averageCase: 'O(log n)',
+    bestCase: 'O(1)',
+    spaceComplexity: 'O(1)',
+  },
+  linear: {
+    name: 'Linear Search',
+    description:
+      'Linear Search checks values one-by-one from left to right until it finds the target or reaches the end.',
+    requiresSorted: false,
+    worstCase: 'O(n)',
+    averageCase: 'O(n)',
+    bestCase: 'O(1)',
+    spaceComplexity: 'O(1)',
+  },
+  jump: {
+    name: 'Jump Search',
+    description:
+      'Jump Search skips ahead by fixed blocks in sorted data and then performs a local linear scan.',
+    requiresSorted: true,
+    worstCase: 'O(√n)',
+    averageCase: 'O(√n)',
+    bestCase: 'O(1)',
+    spaceComplexity: 'O(1)',
+  },
+  interpolation: {
+    name: 'Interpolation Search',
+    description:
+      'Interpolation Search estimates the likely position based on target value distribution in sorted data.',
+    requiresSorted: true,
+    worstCase: 'O(n)',
+    averageCase: 'O(log log n)',
+    bestCase: 'O(1)',
+    spaceComplexity: 'O(1)',
+  },
+  exponential: {
+    name: 'Exponential Search',
+    description:
+      'Exponential Search grows a search range exponentially, then runs binary search inside that range.',
+    requiresSorted: true,
+    worstCase: 'O(log n)',
+    averageCase: 'O(log n)',
+    bestCase: 'O(1)',
+    spaceComplexity: 'O(1)',
+  },
+  fibonacci: {
+    name: 'Fibonacci Search',
+    description:
+      'Fibonacci Search narrows sorted ranges using Fibonacci-number offsets instead of midpoint splits.',
+    requiresSorted: true,
+    worstCase: 'O(log n)',
+    averageCase: 'O(log n)',
+    bestCase: 'O(1)',
+    spaceComplexity: 'O(1)',
+  },
+  bfs: {
+    name: 'BFS',
+    description:
+      'BFS explores an implicit binary-tree view of the array level by level using a queue.',
+    requiresSorted: false,
+    worstCase: 'O(n)',
+    averageCase: 'O(n)',
+    bestCase: 'O(1)',
+    spaceComplexity: 'O(n)',
+  },
+  dfs: {
+    name: 'DFS',
+    description:
+      'DFS explores an implicit binary-tree view of the array depth-first using a stack.',
+    requiresSorted: false,
+    worstCase: 'O(n)',
+    averageCase: 'O(n)',
+    bestCase: 'O(1)',
+    spaceComplexity: 'O(n)',
+  },
+}
+
+const TREE_VIEWBOX_WIDTH = 860
+const TREE_VIEWBOX_HEIGHT = 420
+const TREE_HORIZONTAL_PADDING = 32
+const TREE_VERTICAL_PADDING_TOP = 36
+const TREE_VERTICAL_PADDING_BOTTOM = 48
+
 const HOW_TO_STEPS = [
   {
-    title: 'Generate Sorted Data',
-    detail: 'Binary search only works on sorted arrays. Use the Dataset tab to create one.',
+    title: 'Generate Data',
+    detail: 'Create a dataset from the Dataset tab to start experimenting.',
+  },
+  {
+    title: 'Choose Search Algorithm',
+    detail: 'Switch between linear, logarithmic, and graph-style search strategies.',
   },
   {
     title: 'Set Search Target',
-    detail: 'Enter a number you want to find in the "Search" tab.',
+    detail: 'Enter the value you want to locate in the dataset.',
   },
   {
     title: 'Start Search',
-    detail: 'Watch as the algorithm repeatedly halves the search space.',
-  },
-  {
-    title: 'Found!',
-    detail: 'If the value exists, it will be highlighted in green.',
+    detail: 'Run, pause, and step through each search operation to see how the algorithm explores.',
   },
 ]
 
 export function BinarySearchVisualizer() {
   const [array, setArray] = useState<number[]>([])
+  const [algorithm, setAlgorithm] = useState<SearchAlgorithm>('binary')
   const [isRunning, setIsRunning] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [target, setTarget] = useState(50)
@@ -77,14 +201,28 @@ export function BinarySearchVisualizer() {
     steps: 0,
   })
   const [isGuideOpen, setIsGuideOpen] = useState(false)
+  const [barsContainerWidth, setBarsContainerWidth] = useState(0)
 
-  const labelInterval =
-    array.length <= 24 ? 1 : array.length <= 40 ? 2 : array.length <= 70 ? 4 : 6
+  const algorithmInfo = SEARCH_ALGORITHM_INFO[algorithm]
+  const isTreeMode = algorithm === 'bfs' || algorithm === 'dfs'
 
   const stopSignalRef = useRef(false)
   const pauseSignalRef = useRef(false)
+  const barsContainerRef = useRef<HTMLDivElement | null>(null)
   const historyRef = useRef<SortStep[]>([])
   const [currentHistoryIndex, setCurrentHistoryIndex] = useState(-1)
+
+  const labelInterval = useMemo(() => {
+    if (array.length <= 30 && barsContainerWidth > 0) {
+      const perBarWidth = barsContainerWidth / Math.max(array.length, 1)
+
+      if (perBarWidth >= 18) {
+        return 1
+      }
+    }
+
+    return array.length <= 24 ? 1 : array.length <= 40 ? 2 : array.length <= 70 ? 4 : 6
+  }, [array.length, barsContainerWidth])
 
   const executionControl = useMemo<SortExecutionControl>(
     () => ({
@@ -97,6 +235,166 @@ export function BinarySearchVisualizer() {
 
   const maxValue = useMemo(() => (array.length > 0 ? Math.max(...array) : 100), [array])
   const speedLabel = speed <= 25 ? 'Slow' : speed <= 50 ? 'Medium' : speed <= 75 ? 'Fast' : 'Hyper'
+  const treeNodeCount = useMemo(() => {
+    if (!isTreeMode) {
+      return 0
+    }
+
+    return array.length
+  }, [array.length, isTreeMode])
+
+  const treeLevels = useMemo(() => {
+    if (treeNodeCount <= 0) {
+      return 0
+    }
+
+    return Math.floor(Math.log2(treeNodeCount)) + 1
+  }, [treeNodeCount])
+
+  const treeMaxNodesInLevel = useMemo(() => {
+    if (treeNodeCount <= 0 || treeLevels <= 0) {
+      return 1
+    }
+
+    let maxNodes = 1
+
+    for (let level = 0; level < treeLevels; level++) {
+      const levelStartIndex = 2 ** level - 1
+      const availableNodes = treeNodeCount - levelStartIndex
+      const nodesInLevel = Math.max(0, Math.min(2 ** level, availableNodes))
+      maxNodes = Math.max(maxNodes, nodesInLevel)
+    }
+
+    return maxNodes
+  }, [treeLevels, treeNodeCount])
+
+  const treeNodeRadius = useMemo(() => {
+    if (treeNodeCount <= 0) {
+      return 0
+    }
+
+    const baseRadius =
+      treeNodeCount <= 30
+        ? treeLevels >= 5
+          ? 20
+          : 24
+        : treeNodeCount <= 50
+          ? 16
+          : treeNodeCount <= 80
+            ? 12
+            : 9
+
+    const usableWidth = TREE_VIEWBOX_WIDTH - TREE_HORIZONTAL_PADDING * 2
+    const maxSafeDiameter = (usableWidth / (treeMaxNodesInLevel + 1)) * 0.86
+    const widthLimitedRadius = Math.floor(maxSafeDiameter / 2)
+
+    return Math.max(5, Math.min(baseRadius, widthLimitedRadius))
+  }, [treeLevels, treeMaxNodesInLevel, treeNodeCount])
+
+  const treeValueFontSize = useMemo(
+    () => Math.max(8, Math.round(treeNodeRadius * 0.72)),
+    [treeNodeRadius]
+  )
+
+  const treeIndexFontSize = useMemo(
+    () => Math.max(7, Math.round(treeNodeRadius * 0.5)),
+    [treeNodeRadius]
+  )
+
+  const treeValueBaselineOffset = useMemo(
+    () => Math.max(2.8, Math.min(4.8, treeNodeRadius * 0.22)),
+    [treeNodeRadius]
+  )
+
+  const treeValueStrokeWidth = useMemo(
+    () => Math.max(0.55, treeNodeRadius * 0.04),
+    [treeNodeRadius]
+  )
+
+  const treeNodes = useMemo(() => {
+    if (treeNodeCount <= 0) {
+      return []
+    }
+
+    const usableWidth = TREE_VIEWBOX_WIDTH - TREE_HORIZONTAL_PADDING * 2
+    const usableHeight =
+      TREE_VIEWBOX_HEIGHT - TREE_VERTICAL_PADDING_TOP - TREE_VERTICAL_PADDING_BOTTOM
+
+    return Array.from({ length: treeNodeCount }, (_, index) => {
+      const level = Math.floor(Math.log2(index + 1))
+      const levelStartIndex = 2 ** level - 1
+      const indexInsideLevel = index - levelStartIndex
+      const nodesInLevel = 2 ** level
+
+      const x =
+        TREE_HORIZONTAL_PADDING + ((indexInsideLevel + 1) / (nodesInLevel + 1)) * usableWidth
+      const y =
+        treeLevels > 1
+          ? TREE_VERTICAL_PADDING_TOP + (level / (treeLevels - 1)) * usableHeight
+          : TREE_VERTICAL_PADDING_TOP + usableHeight / 2
+
+      const isCurrent = comparing.length > 2 ? comparing[2] === index : comparing.includes(index)
+      const isFound = foundIndex === index
+      const isInRange = !activeRange || (index >= activeRange[0] && index <= activeRange[1])
+      const showIndex = treeNodeCount <= 15 || isCurrent || isFound
+
+      return {
+        index,
+        value: array[index],
+        x,
+        y,
+        isCurrent,
+        isFound,
+        isInRange,
+        showIndex,
+      }
+    })
+  }, [activeRange, array, comparing, foundIndex, treeLevels, treeNodeCount])
+
+  const treeEdges = useMemo(() => {
+    if (treeNodes.length <= 1) {
+      return []
+    }
+
+    const nodeByIndex = new Map(treeNodes.map((node) => [node.index, node]))
+    const edges: Array<{ parent: (typeof treeNodes)[number]; child: (typeof treeNodes)[number] }> = []
+
+    for (let index = 1; index < treeNodeCount; index++) {
+      const parentIndex = Math.floor((index - 1) / 2)
+      const parent = nodeByIndex.get(parentIndex)
+      const child = nodeByIndex.get(index)
+
+      if (parent && child) {
+        edges.push({ parent, child })
+      }
+    }
+
+    return edges
+  }, [treeNodeCount, treeNodes])
+
+  useEffect(() => {
+    const container = barsContainerRef.current
+
+    if (!container || typeof ResizeObserver === 'undefined') {
+      return
+    }
+
+    const updateWidth = () => {
+      setBarsContainerWidth(container.clientWidth)
+    }
+
+    updateWidth()
+
+    const observer = new ResizeObserver(() => {
+      updateWidth()
+    })
+
+    observer.observe(container)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [])
 
   // Reset function
   const reset = useCallback(() => {
@@ -119,13 +417,37 @@ export function BinarySearchVisualizer() {
   }, [])
 
   const handleDatasetReady = useCallback((newData: number[], meta: DatasetGeneratorMeta) => {
-    const sorted = [...newData].sort((a, b) => a - b)
-    setArray(sorted)
+    const prepared = algorithmInfo.requiresSorted
+      ? [...newData].sort((a, b) => a - b)
+      : [...newData]
+
+    setArray(prepared)
     reset()
-    setStepMessage(`Dataset generated (${meta.arraySize} sorted items)`)
+    setStepMessage(
+      algorithmInfo.requiresSorted
+        ? `Dataset generated (${meta.arraySize} items) and sorted for ${algorithmInfo.name}.`
+        : `Dataset generated (${meta.arraySize} items).`
+    )
+  }, [algorithmInfo.name, algorithmInfo.requiresSorted, reset])
+
+  const handleAlgorithmChange = useCallback((value: string) => {
+    const nextAlgorithm = value as SearchAlgorithm
+    const nextInfo = SEARCH_ALGORITHM_INFO[nextAlgorithm]
+
+    setAlgorithm(nextAlgorithm)
+    setArray((previous) =>
+      nextInfo.requiresSorted ? [...previous].sort((a, b) => a - b) : previous
+    )
+    reset()
+    setStepMessage(
+      nextInfo.requiresSorted
+        ? `${nextInfo.name} selected. Dataset sorted automatically for correctness.`
+        : `${nextInfo.name} selected.`
+    )
   }, [reset])
 
   const applyStep = useCallback((step: SortStep) => {
+    setArray(step.array)
     setComparing(step.comparing)
     setActiveRange(step.activeRange ?? null)
     setStats({
@@ -142,26 +464,47 @@ export function BinarySearchVisualizer() {
     setIsRunning(true)
     stopSignalRef.current = false
     pauseSignalRef.current = false
+    setStepMessage(`Running ${algorithmInfo.name}...`)
 
     try {
-      const result = await binarySearch(
-        array,
-        target,
-        (step) => {
-          historyRef.current.push(step)
-          setCurrentHistoryIndex(historyRef.current.length - 1)
-          applyStep(step)
-          setCurrentStep((prev) => prev + 1)
-        },
-        speed,
-        executionControl
-      )
+      const preparedArray = algorithmInfo.requiresSorted
+        ? [...array].sort((a, b) => a - b)
+        : [...array]
+
+      setArray(preparedArray)
+
+      const onStep = (step: SortStep) => {
+        historyRef.current.push(step)
+        setCurrentHistoryIndex(historyRef.current.length - 1)
+        applyStep(step)
+        setCurrentStep((prev) => prev + 1)
+      }
+
+      let result: SearchResult
+
+      if (algorithm === 'linear') {
+        result = await linearSearch(preparedArray, target, onStep, speed, executionControl)
+      } else if (algorithm === 'binary') {
+        result = await binarySearch(preparedArray, target, onStep, speed, executionControl)
+      } else if (algorithm === 'jump') {
+        result = await jumpSearch(preparedArray, target, onStep, speed, executionControl)
+      } else if (algorithm === 'interpolation') {
+        result = await interpolationSearch(preparedArray, target, onStep, speed, executionControl)
+      } else if (algorithm === 'exponential') {
+        result = await exponentialSearch(preparedArray, target, onStep, speed, executionControl)
+      } else if (algorithm === 'fibonacci') {
+        result = await fibonacciSearch(preparedArray, target, onStep, speed, executionControl)
+      } else if (algorithm === 'bfs') {
+        result = await bfsSearch(preparedArray, target, onStep, speed, executionControl)
+      } else {
+        result = await dfsSearch(preparedArray, target, onStep, speed, executionControl)
+      }
 
       if (result.found) {
         setFoundIndex(result.index)
-        setStepMessage(`Found ${target} at index ${result.index}!`)
+        setStepMessage(`${algorithmInfo.name}: found ${target} at index ${result.index}.`)
       } else {
-        setStepMessage(`${target} not found in the array.`)
+        setStepMessage(`${algorithmInfo.name}: ${target} not found in the dataset.`)
       }
     } catch (err) {
       if (!isSortAbortedError(err)) {
@@ -171,7 +514,7 @@ export function BinarySearchVisualizer() {
       setIsRunning(false)
       setComparing([])
     }
-  }, [array, target, speed, executionControl, applyStep, reset])
+  }, [algorithm, algorithmInfo.name, algorithmInfo.requiresSorted, array, target, speed, executionControl, applyStep, reset])
 
   const pauseSort = () => {
     setIsPaused(true)
@@ -187,6 +530,7 @@ export function BinarySearchVisualizer() {
     if (currentHistoryIndex < historyRef.current.length - 1) {
       const nextIdx = currentHistoryIndex + 1
       setCurrentHistoryIndex(nextIdx)
+      setCurrentStep(nextIdx + 1)
       applyStep(historyRef.current[nextIdx])
     }
   }
@@ -195,6 +539,7 @@ export function BinarySearchVisualizer() {
     if (currentHistoryIndex > 0) {
       const prevIdx = currentHistoryIndex - 1
       setCurrentHistoryIndex(prevIdx)
+      setCurrentStep(prevIdx + 1)
       applyStep(historyRef.current[prevIdx])
     }
   }
@@ -208,7 +553,7 @@ export function BinarySearchVisualizer() {
           <p className="mt-1 text-xl font-bold text-primary">{stats.comparisons}</p>
         </div>
         <div className="glass-card flex flex-col justify-center border-purple-500/20 p-3 text-center">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">Logarithmic Steps</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">Search Steps</p>
           <p className="mt-1 text-xl font-bold text-purple-400">{stats.steps}</p>
         </div>
         <div className="glass-card flex flex-col justify-center border-blue-500/20 p-3 text-center">
@@ -223,7 +568,7 @@ export function BinarySearchVisualizer() {
             {foundIndex !== null ? (
               <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">Found at {foundIndex}</Badge>
             ) : isRunning ? (
-              <Badge className="bg-primary/20 text-primary border-primary/30 animate-pulse">Searching...</Badge>
+              <Badge className="bg-primary/20 text-primary border-primary/30 animate-pulse">Running...</Badge>
             ) : (
               <Badge variant="outline" className="text-muted-foreground">Ready</Badge>
             )}
@@ -233,7 +578,7 @@ export function BinarySearchVisualizer() {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[400px_1fr]">
         {/* ── Left Sidebar / Operations Center ── */}
-        <aside className="flex flex-col gap-6">
+        <aside className="flex flex-col gap-8">
           <Card className="glass-card flex flex-col p-0 overflow-hidden border-primary/20">
             <div className="bg-primary/10 border-b border-primary/20 px-5 py-4">
                <div className="flex items-center gap-2">
@@ -255,7 +600,7 @@ export function BinarySearchVisualizer() {
                 </TabsTrigger>
               </TabsList>
 
-              <div className="p-5">
+              <div className="p-6">
                 <TabsContent value="dataset" className="mt-0 space-y-4">
                   <DatasetGenerator 
                     onDatasetReady={handleDatasetReady} 
@@ -264,17 +609,53 @@ export function BinarySearchVisualizer() {
                     hidePreview 
                     className="!p-0 !bg-transparent !border-0 !shadow-none" 
                   />
-                  <div className="flex gap-2 rounded-lg bg-blue-500/10 border border-blue-500/20 p-3 text-[11px] text-blue-400">
+                  <div
+                    className={cn(
+                      'flex gap-2 rounded-lg p-3 text-[11px]',
+                      algorithmInfo.requiresSorted
+                        ? 'bg-blue-500/10 border border-blue-500/20 text-blue-400'
+                        : 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+                    )}
+                  >
                     <Info className="size-4 shrink-0" />
-                    <p>Datasets are automatically sorted after generation for binary search.</p>
+                    <p>
+                      {algorithmInfo.requiresSorted
+                        ? `${algorithmInfo.name} requires sorted data. The dataset is auto-sorted when needed.`
+                        : `${algorithmInfo.name} can run on unsorted datasets.`}
+                    </p>
                   </div>
                 </TabsContent>
 
-                <TabsContent value="search" className="mt-0 space-y-6">
+                <TabsContent value="search" className="mt-0 space-y-7">
+                  {/* Algorithm Selector */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">1. Search Algorithm</Label>
+                      <Badge variant="outline" className="text-[10px] border-primary/20 text-primary">
+                        {algorithmInfo.name}
+                      </Badge>
+                    </div>
+                    <Select value={algorithm} onValueChange={handleAlgorithmChange} disabled={isRunning}>
+                      <SelectTrigger className="h-10 bg-input/20 border-border/50 text-foreground transition-all focus:ring-primary/40">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover/95 backdrop-blur-xl border-border/50">
+                        <SelectItem value="linear">Linear Search</SelectItem>
+                        <SelectItem value="binary">Binary Search</SelectItem>
+                        <SelectItem value="jump">Jump Search</SelectItem>
+                        <SelectItem value="interpolation">Interpolation Search</SelectItem>
+                        <SelectItem value="exponential">Exponential Search</SelectItem>
+                        <SelectItem value="fibonacci">Fibonacci Search</SelectItem>
+                        <SelectItem value="bfs">BFS</SelectItem>
+                        <SelectItem value="dfs">DFS</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   {/* Target Input */}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">1. Target Value</Label>
+                      <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">2. Target Value</Label>
                       <Badge variant="outline" className="text-[10px] border-primary/20 text-primary">
                         Seeking: {target}
                       </Badge>
@@ -303,8 +684,8 @@ export function BinarySearchVisualizer() {
 
                   {/* Playback Controls */}
                   <div className="space-y-3">
-                    <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">2. Search Control</Label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">3. Search Control</Label>
+                    <div className="grid grid-cols-2 gap-3">
                       <Button
                         onClick={() => void runSearch()}
                         disabled={array.length === 0 || isRunning}
@@ -364,7 +745,7 @@ export function BinarySearchVisualizer() {
                   {/* Speed Controller */}
                   <div className="space-y-4 pt-2">
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">3. Animation Speed</Label>
+                      <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">4. Animation Speed</Label>
                       <Badge variant="outline" className="text-[10px] border-primary/20 text-primary">
                         {speedLabel}
                       </Badge>
@@ -384,7 +765,7 @@ export function BinarySearchVisualizer() {
           </Card>
 
           {/* Dataset Preview (Permanent) */}
-          <Card className={cn("glass-card p-4 space-y-3 transition-all", array.length === 0 && "opacity-50")}>
+          <Card className={cn("glass-card p-5 space-y-3 transition-all", array.length === 0 && "opacity-50")}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Layers className="size-4 text-primary" />
@@ -397,7 +778,7 @@ export function BinarySearchVisualizer() {
             {array.length === 0 ? (
                <p className="text-[11px] text-muted-foreground italic">No dataset generated yet.</p>
             ) : (
-              <div className="max-h-32 overflow-y-auto pr-1">
+              <div className="max-h-40 overflow-y-auto pr-1">
                 <div className="flex flex-wrap gap-1.5">
                   {array.map((value, index) => (
                     <span
@@ -412,42 +793,21 @@ export function BinarySearchVisualizer() {
             )}
           </Card>
 
-          <Card className="glass-card p-5 space-y-4">
-            <div className="flex items-center gap-2">
-              <HelpCircle className="size-4 text-purple-400" />
-              <h3 className="text-sm font-bold text-foreground">Current State</h3>
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Low Index</span>
-                <span className="font-mono text-blue-400">{activeRange ? activeRange[0] : 'None'}</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">High Index</span>
-                <span className="font-mono text-blue-400">{activeRange ? activeRange[1] : 'None'}</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Current Mid</span>
-                <span className="font-mono text-yellow-400">
-                  {comparing.length > 2 ? comparing[2] : 'None'}
-                </span>
-              </div>
-            </div>
-          </Card>
+          {/* Current State Card - REMOVED */}
         </aside>
 
         {/* ── Right Column: Visualization ── */}
-        <main className="flex flex-col gap-6">
-          <Card className="glass-card h-full p-0 overflow-hidden flex flex-col shadow-[0_20px_50px_rgba(45,35,66,0.2)]">
+        <main className="flex flex-col gap-4">
+          <Card className="glass-card p-0 overflow-hidden flex flex-col shadow-[0_20px_50px_rgba(45,35,66,0.2)]">
             {/* Viz Header */}
-            <div className="flex items-center justify-between px-6 py-4 bg-background/20 border-b border-border/20">
+            <div className="flex items-center justify-between px-6 py-3 bg-background/20 border-b border-border/20">
               <div className="flex items-center gap-2">
                 <div className="size-2 rounded-full bg-blue-500 animate-pulse" />
                 <h2 className="text-base font-bold text-foreground">Search Arena</h2>
               </div>
               <div className="flex items-center gap-3">
                 <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 uppercase tracking-tighter text-[10px]">
-                  Binary Search
+                  {algorithmInfo.name}
                 </Badge>
                 <div className="text-[11px] text-muted-foreground font-mono">
                   Target: {target}
@@ -456,29 +816,114 @@ export function BinarySearchVisualizer() {
             </div>
 
             {/* Step Message bar */}
-            <div className="px-6 py-3 bg-primary/5 border-b border-primary/10 flex items-center gap-3">
-              <Info className="size-4 text-primary shrink-0" />
-              <p className="text-sm text-foreground/90 font-medium truncate">{stepMessage}</p>
+            <div className="px-6 py-2 bg-primary/5 border-b border-primary/10 flex items-center gap-3">
+              <Info className="size-3.5 text-primary shrink-0" />
+              <p className="text-xs text-foreground/90 font-medium truncate">{stepMessage}</p>
             </div>
 
             {/* Bars Area */}
-            <div className="flex-1 flex items-end justify-center px-6 py-8 min-h-[460px] bg-input/5 gap-0.5 sm:gap-1">
+            <div
+              ref={barsContainerRef}
+              className={cn(
+                'bg-gradient-to-b from-input/5 to-input/10',
+                isTreeMode
+                  ? 'h-[28rem] px-4 py-4'
+                  : 'h-80 flex items-end justify-center px-6 py-5 gap-0.5 sm:gap-1'
+              )}
+            >
               {array.length === 0 ? (
                 <div className="flex flex-col items-center gap-4 text-center opacity-50">
                   <Layers className="size-12" />
                   <div>
                     <p className="text-lg font-bold">Workspace Empty</p>
-                    <p className="text-sm">Generate a sorted dataset to begin searching.</p>
+                    <p className="text-sm">Generate a dataset to begin searching.</p>
                   </div>
+                </div>
+              ) : isTreeMode ? (
+                <div className="relative h-full w-full overflow-x-auto overflow-y-hidden rounded-lg border border-border/20 bg-background/20">
+                  <div className="h-full w-full min-w-[700px]">
+                    <svg
+                      viewBox={`0 0 ${TREE_VIEWBOX_WIDTH} ${TREE_VIEWBOX_HEIGHT}`}
+                      className="h-full w-full"
+                      preserveAspectRatio="xMinYMin meet"
+                      role="img"
+                      aria-label={`${algorithmInfo.name} tree visualization`}
+                    >
+                      {treeEdges.map((edge) => (
+                        <line
+                          key={`${edge.parent.index}-${edge.child.index}`}
+                          x1={edge.parent.x}
+                          y1={edge.parent.y + treeNodeRadius - 1}
+                          x2={edge.child.x}
+                          y2={edge.child.y - treeNodeRadius + 1}
+                          stroke="rgba(148, 163, 184, 0.45)"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                        />
+                      ))}
+
+                      {treeNodes.map((node) => {
+                        const nodeFill = node.isFound
+                          ? 'rgb(34, 197, 94)'
+                          : node.isCurrent
+                            ? 'rgb(250, 204, 21)'
+                            : node.isInRange
+                              ? 'rgb(59, 130, 246)'
+                              : 'rgb(71, 85, 105)'
+
+                        const nodeStroke = node.isFound
+                          ? 'rgba(16, 185, 129, 0.9)'
+                          : node.isCurrent
+                            ? 'rgba(250, 204, 21, 0.9)'
+                            : 'rgba(148, 163, 184, 0.45)'
+
+                        return (
+                          <g key={node.index} transform={`translate(${node.x}, ${node.y})`}>
+                            <circle r={treeNodeRadius} fill={nodeFill} stroke={nodeStroke} strokeWidth="2" />
+                            <text
+                              y={treeValueBaselineOffset}
+                              textAnchor="middle"
+                              fill="rgba(255, 255, 255, 0.95)"
+                              stroke="rgba(15, 23, 42, 0.6)"
+                              strokeWidth={treeValueStrokeWidth}
+                              paintOrder="stroke"
+                              style={{ fontSize: `${treeValueFontSize}px`, fontWeight: 800 }}
+                            >
+                              {node.value}
+                            </text>
+                            {node.showIndex && (
+                              <text
+                                y={treeNodeRadius + 12}
+                                textAnchor="middle"
+                                fill="rgba(148, 163, 184, 0.9)"
+                                style={{ fontSize: `${treeIndexFontSize}px`, fontWeight: 700 }}
+                              >
+                                #{node.index}
+                              </text>
+                            )}
+                          </g>
+                        )
+                      })}
+                    </svg>
+                  </div>
+
+                  {array.length > treeNodeCount && (
+                    <div className="pointer-events-none absolute bottom-2 right-2 rounded-md border border-border/40 bg-background/70 px-2 py-1 text-[10px] font-semibold text-muted-foreground backdrop-blur-sm">
+                      Showing first {treeNodeCount} nodes
+                    </div>
+                  )}
                 </div>
               ) : (
                 array.map((value, idx) => {
                   const isMid = comparing.length > 2 && comparing[2] === idx
+                  const isCurrent = comparing.length > 2 ? isMid : comparing.includes(idx)
                   const isLow = activeRange && activeRange[0] === idx
                   const isHigh = activeRange && activeRange[1] === idx
                   const isInRange = activeRange && idx >= activeRange[0] && idx <= activeRange[1]
                   const isFound = foundIndex === idx
-                  const shouldShowLabel = array.length <= 40 && (idx % labelInterval === 0 || isMid || isFound || isLow || isHigh)
+                  const shouldShowLabel =
+                    array.length <= 40 &&
+                    (idx % labelInterval === 0 || isCurrent || isFound || isLow || isHigh)
                   
                   return (
                     <div
@@ -487,22 +932,20 @@ export function BinarySearchVisualizer() {
                       style={{ flex: '1' }}
                     >
                       <motion.div
-                        className="w-full rounded-t-sm"
+                        className="w-full rounded-t-md transition-shadow"
                         animate={{
                           height: `${(value / maxValue) * 100}%`,
                           backgroundColor: isFound
                             ? 'rgb(34, 197, 94)'
-                            : isMid
+                            : isCurrent
                               ? 'rgb(250, 204, 21)'
-                            : isInRange
-                              ? 'rgb(59, 130, 246)'
-                              : 'rgb(30, 41, 59)', // Darker for discarded
-                          boxShadow: isMid
-                            ? '0 0 12px rgba(250, 204, 21, 0.4)'
+                            : 'rgb(59, 130, 246)', // Blue for all unsearched
+                          boxShadow: isCurrent
+                            ? '0 0 16px rgba(250, 204, 21, 0.6)'
                             : isFound
-                              ? '0 0 12px rgba(34, 197, 94, 0.3)'
-                              : '0 0 0 rgba(0,0,0,0)',
-                          opacity: (activeRange && !isInRange) ? 0.2 : 1,
+                              ? '0 0 16px rgba(34, 197, 94, 0.5)'
+                              : '0 4px 12px rgba(59, 130, 246, 0.2)',
+                          opacity: (activeRange && !isInRange) ? 0.25 : 1,
                         }}
                         transition={{
                           type: 'spring',
@@ -512,10 +955,18 @@ export function BinarySearchVisualizer() {
                       />
                       {shouldShowLabel && (
                          <span className={cn(
-                           "pointer-events-none absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] font-mono font-bold whitespace-nowrap",
-                           isFound ? "text-emerald-400" : isMid ? "text-yellow-400" : (isLow || isHigh) ? "text-blue-400" : "text-foreground/50"
+                           "pointer-events-none absolute -bottom-6 left-1/2 -translate-x-1/2 text-[9px] font-mono font-bold whitespace-nowrap",
+                           isFound ? "text-emerald-400" : isCurrent ? "text-yellow-400" : (isLow || isHigh) ? "text-blue-400" : "text-foreground/85"
                          )}>
-                           {isFound ? `✓ ${value}` : isMid ? `M: ${value}` : isLow ? `L: ${value}` : isHigh ? `H: ${value}` : value}
+                           {isFound
+                             ? `✓ ${value}`
+                             : isCurrent && comparing.length > 2
+                               ? `${algorithm === 'binary' ? 'M' : algorithm === 'interpolation' ? 'P' : 'C'}: ${value}`
+                               : isLow
+                                 ? `L: ${value}`
+                                 : isHigh
+                                   ? `H: ${value}`
+                                   : value}
                          </span>
                       )}
                     </div>
@@ -525,61 +976,86 @@ export function BinarySearchVisualizer() {
             </div>
 
             {/* Legend bar */}
-            <div className="px-6 py-4 bg-background/30 border-t border-border/20">
+            <div className="px-6 py-3 bg-gradient-to-r from-background/50 to-primary/5 border-t border-border/30">
                <div className="flex flex-wrap gap-x-6 gap-y-2">
                   <div className="flex items-center gap-2">
-                    <div className="size-2 rounded-full bg-blue-500" />
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground">In Search Space</span>
+                    <div className="size-2 rounded-full bg-blue-500 shadow-lg shadow-blue-500/50" />
+                    <span className="text-[9px] uppercase font-bold text-muted-foreground">
+                      {isTreeMode
+                        ? 'Tree Nodes'
+                        : algorithmInfo.requiresSorted
+                          ? 'In Search Space'
+                          : 'Candidate Values'}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="size-2 rounded-full bg-yellow-400" />
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground">Current Mid</span>
+                    <div className="size-2 rounded-full bg-yellow-400 shadow-lg shadow-yellow-400/50" />
+                    <span className="text-[9px] uppercase font-bold text-muted-foreground">
+                      {isTreeMode
+                        ? 'Current Node'
+                        : algorithm === 'binary'
+                          ? 'Current Mid'
+                          : algorithm === 'interpolation'
+                            ? 'Probe Index'
+                            : 'Current Check'}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="size-2 rounded-full bg-slate-800" />
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground">Discarded</span>
+                    <div
+                      className={cn(
+                        'size-2 rounded-full shadow-lg',
+                        isTreeMode ? 'bg-slate-400 shadow-slate-400/50' : 'bg-slate-800 shadow-slate-800/50'
+                      )}
+                    />
+                    <span className="text-[9px] uppercase font-bold text-muted-foreground">
+                      {isTreeMode ? 'Parent/Child Links' : 'Discarded'}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="size-2 rounded-full bg-green-500" />
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground">Result Found</span>
+                    <div className="size-2 rounded-full bg-green-500 shadow-lg shadow-green-500/50" />
+                    <span className="text-[9px] uppercase font-bold text-muted-foreground">Result Found</span>
                   </div>
                </div>
+            </div>
+
+            {/* Search Theory - Compact Version */}
+            <div className="px-6 py-3 bg-primary/5 border-t border-primary/10">
+              <h3 className="text-base font-bold text-primary mb-2">{algorithmInfo.name} Theory</h3>
+              <p className="text-sm text-foreground/70 leading-relaxed mb-3">
+                {algorithmInfo.description}
+              </p>
+              <div className="grid grid-cols-3 gap-3 mb-3">
+                <div className="p-2 rounded-lg border border-border/20 bg-background/30 flex flex-col gap-0.5">
+                  <span className="text-[9px] uppercase font-bold text-muted-foreground">Worst</span>
+                  <span className="text-sm font-bold text-red-400 font-mono">{algorithmInfo.worstCase}</span>
+                </div>
+                <div className="p-2 rounded-lg border border-border/20 bg-background/30 flex flex-col gap-0.5">
+                  <span className="text-[9px] uppercase font-bold text-muted-foreground">Avg</span>
+                  <span className="text-sm font-bold text-blue-400 font-mono">{algorithmInfo.averageCase}</span>
+                </div>
+                <div className="p-2 rounded-lg border border-border/20 bg-background/30 flex flex-col gap-0.5">
+                  <span className="text-[9px] uppercase font-bold text-muted-foreground">Best</span>
+                  <span className="text-sm font-bold text-emerald-400 font-mono">{algorithmInfo.bestCase}</span>
+                </div>
+              </div>
+              
+              {/* Space Complexity */}
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border/10">
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[9px] uppercase font-bold text-muted-foreground">Space</span>
+                  <span className="text-sm font-bold text-purple-400 font-mono">{algorithmInfo.spaceComplexity}</span>
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[9px] uppercase font-bold text-muted-foreground">Found</span>
+                  <Badge variant="outline" className={cn('text-[7px] h-5', foundIndex !== null ? 'bg-emerald-400/20 text-emerald-400 border-emerald-400/50' : 'bg-background/30')}>
+                    {foundIndex !== null ? '✓ Found' : 'Searching...'}
+                  </Badge>
+                </div>
+              </div>
             </div>
           </Card>
         </main>
       </div>
-
-      {/* ── Algorithm Info Section ── */}
-      <Card className="glass-card p-0 border-primary/20 overflow-hidden">
-        <div className="bg-primary/10 px-6 py-4 flex items-center justify-between border-b border-primary/20">
-           <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/20 rounded-lg text-primary">
-                <Search className="size-5" />
-              </div>
-              <h2 className="text-xl font-bold text-foreground">Binary Search Theory</h2>
-           </div>
-           <Badge className="bg-primary text-primary-foreground">O(1) Space</Badge>
-        </div>
-        <div className="p-6">
-          <p className="text-base text-foreground/80 leading-relaxed max-w-4xl">
-            Binary Search is an efficient algorithm for finding an item from a <strong>sorted</strong> list of items. It works by repeatedly dividing in half the portion of the list that could contain the item, until you've narrowed down the possible locations to just one.
-          </p>
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-             <div className="p-4 rounded-xl border border-border/20 bg-background/30 flex flex-col gap-1">
-                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-[0.2em]">Worst Case</span>
-                <span className="text-2xl font-bold text-red-400 font-mono">O(log n)</span>
-             </div>
-             <div className="p-4 rounded-xl border border-border/20 bg-background/30 flex flex-col gap-1">
-                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-[0.2em]">Average Case</span>
-                <span className="text-2xl font-bold text-blue-400 font-mono">O(log n)</span>
-             </div>
-             <div className="p-4 rounded-xl border border-border/20 bg-background/30 flex flex-col gap-1">
-                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-[0.2em]">Best Case</span>
-                <span className="text-2xl font-bold text-emerald-400 font-mono">O(1)</span>
-             </div>
-          </div>
-        </div>
-      </Card>
 
       <div className="flex justify-center">
         <Collapsible open={isGuideOpen} onOpenChange={setIsGuideOpen} className="w-full">
@@ -587,7 +1063,7 @@ export function BinarySearchVisualizer() {
             <CollapsibleTrigger asChild>
               <Button variant="ghost" className="text-muted-foreground text-xs hover:text-primary transition-colors">
                 <HelpCircle className="mr-2 size-3.5" />
-                Binary Search Guide
+                Search Guide
                 <ChevronDown className={cn('ml-1.5 size-3.5 transition-transform', isGuideOpen && 'rotate-180')} />
               </Button>
             </CollapsibleTrigger>

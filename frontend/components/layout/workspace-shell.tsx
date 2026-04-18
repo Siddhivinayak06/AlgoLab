@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useState } from 'react'
 
 import { DashboardNav } from '@/components/dashboard-nav'
 import { RightInfoPanel } from '@/components/layout/right-info-panel'
@@ -20,17 +21,24 @@ export function WorkspaceShell({
   rightPanel,
   contentClassName,
 }: WorkspaceShellProps) {
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+
   return (
     <main className="gradient-mesh min-h-screen">
-      <DashboardNav />
+      <DashboardNav onSidebarToggle={() => setSidebarOpen(!sidebarOpen)} />
 
       <div className="mx-auto max-w-[1600px] px-3 pb-8 pt-6 sm:px-4 lg:px-5">
-        <div className="grid gap-4 lg:grid-cols-[4.2rem_minmax(0,1fr)] xl:grid-cols-[12.75rem_minmax(0,1fr)] 2xl:grid-cols-[12.75rem_minmax(0,1fr)_17.5rem]">
-          <WorkspaceSidebar className="hidden lg:block" />
+        <div className={cn(
+          'grid gap-4 transition-all duration-300',
+          sidebarOpen 
+            ? 'lg:grid-cols-[4.2rem_minmax(0,1fr)] xl:grid-cols-[12.75rem_minmax(0,1fr)] 2xl:grid-cols-[12.75rem_minmax(0,1fr)_17.5rem]'
+            : '2xl:grid-cols-[minmax(0,1fr)_17.5rem]'
+        )}>
+          {sidebarOpen && <WorkspaceSidebar className="hidden lg:block" />}
 
           <section
             className={cn(
-              'rounded-2xl border border-border/40 bg-background/35 p-5 shadow-[0_8px_26px_rgba(0,0,0,0.16)] backdrop-blur-2xl sm:p-6',
+              'min-w-0 rounded-2xl border border-border/40 bg-background/35 p-5 shadow-[0_8px_26px_rgba(0,0,0,0.16)] backdrop-blur-2xl sm:p-6',
               contentClassName
             )}
           >

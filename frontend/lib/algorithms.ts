@@ -10,6 +10,8 @@ export interface SortStep {
   pivotValue?: number
   activeRange?: [number, number]
   writeIndex?: number
+  activeLine?: number
+  idArray?: { id: string; value: number }[]
 }
 
 export interface SortMetrics {

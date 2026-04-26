@@ -7,6 +7,7 @@ import {
   ArrowDownWideNarrow,
   ArrowUpDown,
   BarChart3,
+  BookOpen,
   ListOrdered,
   PencilLine,
   RefreshCw,
@@ -81,6 +82,14 @@ const DATASET_TYPE_OPTIONS: Array<{
     label: 'Already Sorted',
     icon: <ListOrdered className="size-3.5" />,
   },
+]
+
+const SAMPLE_DATASETS: Array<{ label: string; data: number[] }> = [
+  { label: 'Small (10)', data: [38, 27, 43, 3, 9, 82, 10, 51, 67, 25] },
+  { label: 'Sorted (15)', data: [2, 5, 11, 14, 19, 23, 31, 37, 42, 48, 56, 63, 71, 85, 99] },
+  { label: 'Reversed (12)', data: [95, 88, 76, 67, 54, 43, 38, 29, 21, 15, 8, 1] },
+  { label: 'Duplicates (10)', data: [7, 3, 7, 3, 9, 9, 1, 7, 3, 1] },
+  { label: 'Large (30)', data: [64, 25, 12, 22, 11, 90, 73, 58, 44, 31, 85, 16, 97, 39, 53, 68, 76, 2, 47, 88, 35, 61, 19, 50, 83, 7, 71, 42, 29, 14] },
 ]
 
 function parseCustomArray(input: string): { values: number[]; error: string | null } {
@@ -288,11 +297,25 @@ export function DatasetGenerator({
     })
   }, [customInput, onDatasetReady])
 
+  const handleLoadSample = useCallback((sample: typeof SAMPLE_DATASETS[0]) => {
+    setPreview(sample.data)
+    setArraySize(sample.data.length)
+    setErrorMessage(null)
+    setShowCustomInput(false)
+    setLastConfig(null)
+    onDatasetReady(sample.data, {
+      source: 'custom',
+      arraySize: sample.data.length,
+    })
+  }, [onDatasetReady])
+
+  const [showSamples, setShowSamples] = useState(false)
+
   return (
     <Card className={cn('glass-card space-y-3 p-4', className)}>
       <h2 className="text-base font-semibold text-foreground">Dataset Generator</h2>
 
-      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-4">
         <Button
           type="button"
           size="sm"
@@ -327,7 +350,47 @@ export function DatasetGenerator({
           <PencilLine className="size-4" />
           Custom Input
         </Button>
+
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-9 rounded-lg border-border/50 bg-background/20 px-2 text-[11px] [&_svg]:size-3.5"
+          onClick={() => setShowSamples((open) => !open)}
+          disabled={disabled}
+        >
+          <BookOpen className="size-4" />
+          Load Sample
+        </Button>
       </div>
+
+      <AnimatePresence initial={false}>
+        {showSamples && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="space-y-2 rounded-lg border border-border/30 bg-background/20 p-3"
+          >
+            <Label className="text-xs font-medium uppercase tracking-[0.14em] text-foreground/80">Sample Datasets</Label>
+            <div className="flex flex-wrap gap-2">
+              {SAMPLE_DATASETS.map((sample) => (
+                <Button
+                  key={sample.label}
+                  type="button"
+                  variant="outline"
+                  className="h-8 rounded-full px-2.5 text-[11px] border-border/50 bg-background/20 hover:bg-primary/10 hover:text-primary hover:border-primary/30"
+                  disabled={disabled}
+                  onClick={() => handleLoadSample(sample)}
+                >
+                  {sample.label}
+                </Button>
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-1">Click any sample to load it instantly.</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {!hideTypeSelector && (
         <div className="space-y-2 rounded-lg border border-border/30 bg-background/20 p-3">

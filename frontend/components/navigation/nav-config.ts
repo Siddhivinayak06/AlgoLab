@@ -1,9 +1,11 @@
 import type { LucideIcon } from 'lucide-react'
 import {
   BarChart3,
+  Binary,
   FileText,
   Flame,
   Gauge,
+  GitBranch,
   History,
   Info,
   Image as ImageIcon,
@@ -69,14 +71,26 @@ const navigationSections: NavSection[] = [
       },
       {
         label: 'Greedy Algorithms',
-        href: '#greedy',
+        href: '/greedy',
         icon: Zap,
         roles: ['student', 'instructor', 'admin'],
       },
       {
         label: 'Graph Algorithms',
-        href: '#graph',
+        href: '/graph',
         icon: Network,
+        roles: ['student', 'instructor', 'admin'],
+      },
+      {
+        label: 'Backtracking',
+        href: '/backtracking',
+        icon: GitBranch,
+        roles: ['student', 'instructor', 'admin'],
+      },
+      {
+        label: 'Branch & Bound',
+        href: '/branch-bound',
+        icon: Binary,
         roles: ['student', 'instructor', 'admin'],
       },
     ],

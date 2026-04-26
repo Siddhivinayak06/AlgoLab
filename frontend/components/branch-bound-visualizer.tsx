@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useCallback, useRef, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   Play, Pause, Redo2, RotateCcw, SkipBack, SkipForward,
   Settings2, Layers, Info, HelpCircle, ChevronDown, Code2,
@@ -21,54 +21,53 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
 import {
-  runLCS, runKnapsackBottomUp, runKnapsackTopDown,
-  DP_INFO,
-  type DPAlgorithm, type DPStep,
-} from '@/lib/dp-engine'
-import { DPTableGrid } from '@/components/dp-table-grid'
-import { DPDatasetGenerator, type DPDataset, type DPDatasetMeta } from '@/components/dp-dataset-generator'
+  run15Puzzle,
+  BRANCH_BOUND_INFO, type BranchBoundStep
+} from '@/lib/branch-bound-engine'
 
 const HOW_TO_STEPS = [
-  { title: 'Configure Inputs', detail: 'Set strings for LCS or weights/values/capacity for Knapsack in the Dataset tab.' },
-  { title: 'Choose Algorithm', detail: 'Select LCS, Knapsack Bottom-Up, or Top-Down from the Algorithm tab.' },
-  { title: 'Start Visualization', detail: 'Press Start to watch the DP table fill cell by cell.' },
-  { title: 'Step Through', detail: 'Use Pause + Step Forward/Back to inspect each computation.' },
+  { title: 'Configure Initial State', detail: 'Set a solvable 4x4 puzzle configuration.' },
+  { title: 'Start Search', detail: 'Press Start to begin the A* (Branch and Bound) search.' },
+  { title: 'Observe Heuristics', detail: 'Watch how the heuristic (h) guides the search towards the goal.' },
+  { title: 'Step Through', detail: 'Use step controls to see which node from the priority queue is expanded.' },
 ]
 
-interface DPVisualizerProps {
+interface BranchBoundVisualizerProps {
   guideOpen?: boolean
   onGuideOpenChange?: (open: boolean) => void
   hideGuideToggle?: boolean
 }
 
-export function DPVisualizer({
+const DEFAULT_BOARD = [
+  [1, 2, 3, 4],
+  [5, 6, 0, 8],
+  [9, 10, 7, 12],
+  [13, 14, 11, 15]
+]
+
+export function BranchBoundVisualizer({
   guideOpen,
   onGuideOpenChange,
   hideGuideToggle = false,
-}: DPVisualizerProps = {}) {
-  const [algorithm, setAlgorithm] = useState<DPAlgorithm>('lcs')
+}: BranchBoundVisualizerProps = {}) {
   const [isRunning, setIsRunning] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [isDone, setIsDone] = useState(false)
   const [speed, setSpeed] = useState(50)
   const [stepMessage, setStepMessage] = useState('Configure inputs and start visualization.')
 
-  // DP inputs
-  const [dpString1, setDpString1] = useState('ABCBDAB')
-  const [dpString2, setDpString2] = useState('BDCAB')
-  const [dpWeights, setDpWeights] = useState('2,3,4,5')
-  const [dpValues, setDpValues] = useState('3,4,5,6')
-  const [dpCapacity, setDpCapacity] = useState(5)
+  // Inputs
+  const [boardInput, setBoardInput] = useState('1,2,3,4\n5,6,0,8\n9,10,7,12\n13,14,11,15')
 
   // Step history
-  const [steps, setSteps] = useState<DPStep[]>([])
+  const [steps, setSteps] = useState<BranchBoundStep[]>([])
   const [currentIndex, setCurrentIndex] = useState(-1)
-  const [stats, setStats] = useState({ comparisons: 0, operations: 0, cacheHits: 0, time: 0, statesComputed: 0, tableSize: '' })
+  const [stats, setStats] = useState({ comparisons: 0, operations: 0, statesExplored: 0, memoryUsage: 0 })
 
   // Playback
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const speedRef = useRef(speed)
-  const stepsRef = useRef<DPStep[]>([])
+  const stepsRef = useRef<BranchBoundStep[]>([])
   const indexRef = useRef(-1)
 
   const [internalGuideOpen, setInternalGuideOpen] = useState(false)
@@ -80,7 +79,7 @@ export function DPVisualizer({
 
   useEffect(() => { speedRef.current = speed }, [speed])
 
-  const currentStep: DPStep | null = steps[currentIndex] ?? null
+  const currentStep: BranchBoundStep | null = steps[currentIndex] ?? null
 
   const stopPlayback = useCallback(() => {
     if (timerRef.current) {
@@ -89,24 +88,21 @@ export function DPVisualizer({
     }
   }, [])
 
-  const applyStep = useCallback((idx: number, allSteps: DPStep[]) => {
+  const applyStep = useCallback((idx: number, allSteps: BranchBoundStep[]) => {
     const s = allSteps[idx]
     if (!s) return
     setCurrentIndex(idx)
     indexRef.current = idx
     setStepMessage(s.note)
-    const total = allSteps.length
     setStats({
       comparisons: s.comparisons,
       operations: s.operations,
-      cacheHits: s.cacheHits,
-      time: 0,
-      statesComputed: s.completedCells.length,
-      tableSize: `${s.table.length}×${s.table[0]?.length ?? 0}`,
+      statesExplored: s.statesExplored,
+      memoryUsage: s.memoryUsage
     })
   }, [])
 
-  const startPlayback = useCallback((allSteps: DPStep[], fromIndex: number) => {
+  const startPlayback = useCallback((allSteps: BranchBoundStep[], fromIndex: number) => {
     stopPlayback()
     setIsRunning(true)
     setIsPaused(false)
@@ -126,39 +122,35 @@ export function DPVisualizer({
     timerRef.current = setInterval(tick, delayMs)
   }, [stopPlayback, applyStep])
 
-
+  const parseBoard = (): number[][] => {
+    try {
+      const parsed = boardInput.split('\n').map(line => line.split(',').map(s => parseInt(s.trim(), 10)))
+      if (parsed.length !== 4 || parsed.some(row => row.length !== 4)) {
+        throw new Error("Invalid board format. Must be 4x4.")
+      }
+      return parsed
+    } catch {
+      return DEFAULT_BOARD
+    }
+  }
 
   const runVisualization = useCallback(() => {
     stopPlayback()
     setIsDone(false)
 
-    const startTime = Date.now()
-    let result: { steps: DPStep[]; answer: number }
-
-    if (algorithm === 'lcs') {
-      result = runLCS(dpString1, dpString2)
-    } else if (algorithm === 'knapsack-bottom-up') {
-      const wArr = dpWeights.split(',').map(s => parseInt(s.trim(), 10)).filter(v => !isNaN(v))
-      const vArr = dpValues.split(',').map(s => parseInt(s.trim(), 10)).filter(v => !isNaN(v))
-      result = runKnapsackBottomUp(wArr, vArr, dpCapacity)
-    } else {
-      const wArr = dpWeights.split(',').map(s => parseInt(s.trim(), 10)).filter(v => !isNaN(v))
-      const vArr = dpValues.split(',').map(s => parseInt(s.trim(), 10)).filter(v => !isNaN(v))
-      result = runKnapsackTopDown(wArr, vArr, dpCapacity)
+    try {
+      const result = run15Puzzle(parseBoard())
+      const allSteps = result.steps
+      setSteps(allSteps)
+      stepsRef.current = allSteps
+      indexRef.current = 0
+      applyStep(0, allSteps)
+      startPlayback(allSteps, 0)
+    } catch (e) {
+      console.error(e)
+      setStepMessage("Error running algorithm. Check your inputs.")
     }
-
-    const elapsed = Date.now() - startTime
-    const allSteps = result.steps
-    setSteps(allSteps)
-    stepsRef.current = allSteps
-    indexRef.current = 0
-    applyStep(0, allSteps)
-
-    // Update time in final step stats
-    setStats(prev => ({ ...prev, time: elapsed }))
-
-    startPlayback(allSteps, 0)
-  }, [algorithm, dpString1, dpString2, dpWeights, dpValues, dpCapacity, stopPlayback, applyStep, startPlayback])
+  }, [boardInput, stopPlayback, applyStep, startPlayback])
 
   const pausePlayback = useCallback(() => {
     stopPlayback()
@@ -196,40 +188,86 @@ export function DPVisualizer({
     setCurrentIndex(-1)
     indexRef.current = -1
     setStepMessage('Configure inputs and start visualization.')
-    setStats({ comparisons: 0, operations: 0, cacheHits: 0, time: 0, statesComputed: 0, tableSize: '' })
+    setStats({ comparisons: 0, operations: 0, statesExplored: 0, memoryUsage: 0 })
   }, [stopPlayback])
-
-  const handleDPDatasetReady = useCallback((dataset: DPDataset, meta: DPDatasetMeta) => {
-    if (dataset.type === 'lcs') {
-      setDpString1(dataset.string1)
-      setDpString2(dataset.string2)
-    } else {
-      const w = dataset.weights.join(', ')
-      const v = dataset.values.join(', ')
-      setDpWeights(w)
-      setDpValues(v)
-      setDpCapacity(dataset.capacity)
-    }
-    resetViz()
-  }, [resetViz])
 
   useEffect(() => {
     return () => stopPlayback()
   }, [stopPlayback])
 
-  const algorithmInfo = DP_INFO[algorithm]
+  const algorithmInfo = BRANCH_BOUND_INFO['15-puzzle']
   const progress = steps.length > 0 ? Math.round(((currentIndex + 1) / steps.length) * 100) : 0
   const speedLabel = speed <= 25 ? 'Slow' : speed <= 50 ? 'Medium' : speed <= 75 ? 'Fast' : 'Hyper'
 
+  const renderPuzzle = () => {
+    if (!currentStep) return null
+    const data = currentStep.data
+    const board = data.currentBoard
+    
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-6 gap-8">
+        <div className="flex gap-4">
+          <div className="text-center px-4 py-2 rounded-lg bg-background/50 border border-border/20 shadow-sm">
+            <p className="text-[10px] font-bold uppercase text-muted-foreground">g(n) - Path Cost</p>
+            <p className="text-xl font-bold text-blue-500">{data.gCost}</p>
+          </div>
+          <div className="text-center px-4 py-2 rounded-lg bg-background/50 border border-border/20 shadow-sm">
+            <p className="text-[10px] font-bold uppercase text-muted-foreground">h(n) - Heuristic</p>
+            <p className="text-xl font-bold text-amber-500">{data.heuristicCost}</p>
+          </div>
+          <div className="text-center px-4 py-2 rounded-lg bg-primary/10 border border-primary/30 shadow-sm">
+            <p className="text-[10px] font-bold uppercase text-primary/80">f(n) - Total Cost</p>
+            <p className="text-xl font-bold text-primary">{data.gCost + data.heuristicCost}</p>
+          </div>
+        </div>
+
+        <div className="bg-muted/30 p-2 rounded-xl shadow-inner border border-border/20">
+          <div className="grid grid-cols-4 gap-1">
+            {board.map((row: number[], r: number) => 
+              row.map((val: number, c: number) => {
+                const isBlank = val === 0
+                return (
+                  <motion.div
+                    key={`${r}-${c}-${val}`}
+                    layout
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                    className={cn(
+                      "w-14 h-14 sm:w-20 sm:h-20 flex items-center justify-center rounded-lg text-lg sm:text-2xl font-bold shadow-sm",
+                      isBlank ? "bg-background/10 border-2 border-dashed border-border/30" : "bg-gradient-to-br from-primary/80 to-primary text-primary-foreground shadow-[inset_0_2px_rgba(255,255,255,0.2),0_2px_4px_rgba(0,0,0,0.1)]"
+                    )}
+                  >
+                    {!isBlank && val}
+                  </motion.div>
+                )
+              })
+            )}
+          </div>
+        </div>
+
+        <div className="flex gap-8 text-sm">
+          <div className="flex flex-col items-center">
+            <span className="text-muted-foreground">Frontier Nodes</span>
+            <span className="font-bold text-primary">{data.frontierStatesCount}</span>
+          </div>
+          <div className="flex flex-col items-center">
+            <span className="text-muted-foreground">Explored Nodes</span>
+            <span className="font-bold text-emerald-500">{data.exploredStatesCount}</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-6">
-      {/* Guide */}
       <Collapsible open={resolvedGuideOpen} onOpenChange={handleGuideOpenChange} className="w-full">
         {!hideGuideToggle && (
           <div className="flex justify-center mb-2">
             <CollapsibleTrigger asChild>
               <Button variant="ghost" className="text-muted-foreground text-xs hover:text-primary">
-                <HelpCircle className="mr-2 size-3.5" />DP Guide
+                <HelpCircle className="mr-2 size-3.5" />Branch & Bound Guide
                 <ChevronDown className={cn('ml-1.5 size-3.5 transition-transform', resolvedGuideOpen && 'rotate-180')} />
               </Button>
             </CollapsibleTrigger>
@@ -251,14 +289,10 @@ export function DPVisualizer({
       </Collapsible>
 
       {/* Metrics Bar */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <div className="glass-card flex flex-col justify-center border-primary/20 p-3 text-center">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">States</p>
-          <p className="mt-1 text-xl font-bold text-primary">{stats.statesComputed}</p>
-        </div>
-        <div className="glass-card flex flex-col justify-center border-purple-500/20 p-3 text-center">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">Cache Hits</p>
-          <p className="mt-1 text-xl font-bold text-purple-400">{stats.cacheHits}</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">States Expanded</p>
+          <p className="mt-1 text-xl font-bold text-primary">{stats.statesExplored}</p>
         </div>
         <div className="glass-card flex flex-col justify-center border-blue-500/20 p-3 text-center">
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">Comparisons</p>
@@ -268,9 +302,9 @@ export function DPVisualizer({
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">Operations</p>
           <p className="mt-1 text-xl font-bold text-amber-400">{stats.operations}</p>
         </div>
-        <div className="glass-card flex flex-col justify-center border-cyan-500/20 p-3 text-center">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">Table Size</p>
-          <p className="mt-1 text-xl font-bold text-cyan-400">{stats.tableSize || '–'}</p>
+        <div className="glass-card flex flex-col justify-center border-purple-500/20 p-3 text-center">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">Est. Memory</p>
+          <p className="mt-1 text-xl font-bold text-purple-400">{stats.memoryUsage} B</p>
         </div>
         <div className="glass-card flex flex-col justify-center border-emerald-500/20 p-3 text-center">
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">Progress</p>
@@ -281,16 +315,14 @@ export function DPVisualizer({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[400px_1fr]">
-        {/* Sidebar */}
-        <aside className="flex flex-col gap-8">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[380px_1fr]">
+        <aside className="flex flex-col gap-6">
           <Card className="glass-card flex flex-col p-0 overflow-hidden border-primary/20">
             <div className="bg-primary/10 border-b border-primary/20 px-5 py-4">
               <div className="flex items-center gap-2">
                 <Settings2 className="size-4 text-primary" />
                 <h2 className="text-base font-bold text-foreground">Operations Center</h2>
               </div>
-              <p className="mt-0.5 text-xs text-muted-foreground">Configure and control DP visualization</p>
             </div>
 
             <Tabs defaultValue="algorithm" className="w-full">
@@ -303,106 +335,97 @@ export function DPVisualizer({
                 </TabsTrigger>
               </TabsList>
 
-              <div className="p-6">
+              <div className="p-5">
                 {/* Dataset Tab */}
                 <TabsContent value="dataset" className="mt-0 space-y-4">
-                  <p className="text-xs text-muted-foreground mb-4">Configure inputs for the selected DP algorithm.</p>
-                  <DPDatasetGenerator
-                    disabled={isRunning}
-                    activeType={algorithm === 'lcs' ? 'lcs' : 'knapsack'}
-                    onDatasetReady={handleDPDatasetReady}
-                  />
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold uppercase text-muted-foreground">Initial Board (4x4)</Label>
+                    <p className="text-[10px] text-muted-foreground mb-2">Use 0 for the blank tile.</p>
+                    <textarea value={boardInput} onChange={e => setBoardInput(e.target.value)} disabled={isRunning} rows={5}
+                      className="w-full rounded-md border border-border/50 bg-input/20 p-3 text-sm focus:ring-2 focus:ring-primary/40 font-mono text-xs" />
+                  </div>
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-md">
+                    <p className="text-xs text-amber-600 font-medium">Note: State space is huge. Max iterations limited to 1000 for visualization.</p>
+                  </div>
                 </TabsContent>
 
                 {/* Algorithm Tab */}
-                <TabsContent value="algorithm" className="mt-0 space-y-7">
+                <TabsContent value="algorithm" className="mt-0 space-y-6">
                   <div className="space-y-3">
-                    <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">1. Select Algorithm</Label>
-                    <Select value={algorithm} onValueChange={v => { setAlgorithm(v as DPAlgorithm); resetViz() }} disabled={isRunning}>
-                      <SelectTrigger className="h-10 bg-input/20 border-border/50"><SelectValue /></SelectTrigger>
-                      <SelectContent className="bg-popover/95 backdrop-blur-xl border-border/50">
-                        <SelectItem value="lcs">Longest Common Subsequence</SelectItem>
-                        <SelectItem value="knapsack-bottom-up">0/1 Knapsack (Bottom-Up)</SelectItem>
-                        <SelectItem value="knapsack-top-down">0/1 Knapsack (Top-Down)</SelectItem>
+                    <Label className="text-xs font-bold uppercase text-muted-foreground">1. Select Algorithm</Label>
+                    <Select value="15-puzzle" disabled>
+                      <SelectTrigger className="h-9 bg-input/20 border-border/50"><SelectValue defaultValue="15-puzzle" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="15-puzzle">15-Puzzle</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
-                  {/* Playback Controls */}
                   <div className="space-y-3">
-                    <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">2. Playback Control</Label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Button onClick={runVisualization} disabled={isRunning} className="h-10 col-span-2 bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20">
-                        <Play className="mr-2 size-4" />Start Visualization
+                    <Label className="text-xs font-bold uppercase text-muted-foreground">2. Playback Control</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button onClick={runVisualization} disabled={isRunning} size="sm" className="col-span-2 bg-primary">
+                        <Play className="mr-2 size-3.5" />Start Visualization
                       </Button>
-                      <Button onClick={pausePlayback} disabled={!isRunning || isPaused} variant="outline" className="h-10 border-border/50 hover:bg-primary/10">
-                        <Pause className="mr-2 size-4" />Pause
+                      <Button onClick={pausePlayback} disabled={!isRunning || isPaused} variant="outline" size="sm">
+                        <Pause className="mr-2 size-3.5" />Pause
                       </Button>
-                      <Button onClick={resumePlayback} disabled={!isRunning || !isPaused} variant="outline" className="h-10 border-border/50 hover:bg-primary/10">
-                        <Redo2 className="mr-2 size-4" />Resume
+                      <Button onClick={resumePlayback} disabled={!isRunning || !isPaused} variant="outline" size="sm">
+                        <Redo2 className="mr-2 size-3.5" />Resume
                       </Button>
-                      <Button onClick={stepBackward} disabled={currentIndex <= 0} variant="outline" className="h-10 border-border/50 hover:bg-primary/10">
-                        <SkipBack className="mr-2 size-4" />Back
+                      <Button onClick={stepBackward} disabled={currentIndex <= 0} variant="outline" size="sm">
+                        <SkipBack className="mr-2 size-3.5" />Back
                       </Button>
-                      <Button onClick={stepForward} disabled={currentIndex >= steps.length - 1} variant="outline" className="h-10 border-border/50 hover:bg-primary/10">
-                        <SkipForward className="mr-2 size-4" />Forward
+                      <Button onClick={stepForward} disabled={currentIndex >= steps.length - 1} variant="outline" size="sm">
+                        <SkipForward className="mr-2 size-3.5" />Forward
                       </Button>
-                      <Button onClick={resetViz} variant="outline" className="h-10 col-span-2 border-border/50 hover:bg-destructive/10 hover:text-destructive">
-                        <RotateCcw className="mr-2 size-4" />Reset
+                      <Button onClick={resetViz} variant="outline" size="sm" className="col-span-2 text-destructive hover:bg-destructive/10">
+                        <RotateCcw className="mr-2 size-3.5" />Reset
                       </Button>
                     </div>
                   </div>
 
-                  {/* Speed */}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">3. Speed</Label>
-                      <Badge variant="outline" className="text-[10px] border-primary/20 text-primary">{speedLabel}</Badge>
+                      <Label className="text-xs font-bold uppercase text-muted-foreground">3. Speed</Label>
+                      <Badge variant="outline" className="text-[10px] text-primary">{speedLabel}</Badge>
                     </div>
-                    <Slider value={[speed]} onValueChange={([v]) => setSpeed(v)} min={1} max={100} step={1} className="w-full" />
+                    <Slider value={[speed]} onValueChange={([v]) => setSpeed(v)} min={1} max={100} step={1} />
                   </div>
                 </TabsContent>
               </div>
             </Tabs>
           </Card>
 
-          {/* Algorithm Theory */}
           <Card className="glass-card p-0 overflow-hidden border-primary/20">
-            <div className="bg-primary/10 border-b border-primary/20 px-5 py-4">
+            <div className="bg-primary/10 border-b border-primary/20 px-5 py-3">
               <div className="flex items-center gap-2">
                 <Code2 className="size-4 text-primary" />
-                <h2 className="text-base font-bold text-foreground">Algorithm Theory</h2>
+                <h2 className="text-sm font-bold">Theory</h2>
               </div>
             </div>
-            <div className="p-5 space-y-3">
-              <p className="text-xs text-foreground/80 leading-relaxed">{algorithmInfo.description}</p>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-lg bg-muted/20 p-2 text-center">
+            <div className="p-4 space-y-3">
+              <p className="text-xs text-muted-foreground leading-relaxed">{algorithmInfo.description}</p>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <div className="rounded-md bg-muted/20 p-2 text-center">
                   <p className="text-[9px] font-bold uppercase text-muted-foreground">Time</p>
-                  <p className="text-sm font-bold text-primary">{algorithmInfo.worstCase}</p>
+                  <p className="text-xs font-bold text-primary">{algorithmInfo.worstCase}</p>
                 </div>
-                <div className="rounded-lg bg-muted/20 p-2 text-center">
+                <div className="rounded-md bg-muted/20 p-2 text-center">
                   <p className="text-[9px] font-bold uppercase text-muted-foreground">Space</p>
-                  <p className="text-sm font-bold text-primary">{algorithmInfo.spaceComplexity}</p>
+                  <p className="text-xs font-bold text-primary">{algorithmInfo.spaceComplexity}</p>
                 </div>
-              </div>
-              <div className="rounded-lg bg-muted/20 p-3">
-                <p className="text-[9px] font-bold uppercase text-muted-foreground mb-2">Recurrence</p>
-                <pre className="text-xs text-foreground/90 font-mono leading-relaxed whitespace-pre-wrap">
-                  {algorithmInfo.recurrence.join('\n')}
-                </pre>
               </div>
             </div>
           </Card>
         </aside>
 
-        {/* Visualization Arena */}
         <main className="flex flex-col gap-4">
-          <Card className="glass-card p-0 overflow-hidden flex flex-col shadow-[0_20px_50px_rgba(45,35,66,0.2)]">
+          <Card className="glass-card p-0 overflow-hidden flex flex-col h-full min-h-[500px]">
             <div className="flex items-center justify-between px-6 py-3 bg-background/20 border-b border-border/20">
               <div className="flex items-center gap-2">
                 <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                <h2 className="text-base font-bold text-foreground">DP Arena</h2>
+                <h2 className="text-base font-bold">Branch & Bound Arena</h2>
               </div>
               <div className="flex items-center gap-3">
                 <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">{algorithmInfo.name}</Badge>
@@ -414,16 +437,18 @@ export function DPVisualizer({
               </div>
             </div>
 
-            {/* Step Message */}
             <div className="px-6 py-4 border-b border-border/10 bg-background/30 flex items-start gap-3 min-h-[72px]">
               <Info className="size-5 text-primary mt-0.5 shrink-0" />
-              <p className="text-sm text-foreground/90 leading-relaxed font-medium">{stepMessage}</p>
+              <p className="text-sm font-medium">{stepMessage}</p>
             </div>
 
-            {/* DP Table Grid */}
-            <div className="flex-1 min-h-[420px] p-4 flex flex-col">
-              <DPTableGrid step={currentStep} algorithm={algorithm} />
-            </div>
+            {renderPuzzle()}
+            
+            {!currentStep && (
+              <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm p-10 text-center">
+                Configure inputs in the operations center and click Start Visualization.
+              </div>
+            )}
           </Card>
         </main>
       </div>

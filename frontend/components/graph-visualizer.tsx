@@ -25,6 +25,7 @@ import {
   GRAPH_INFO, type GraphStep, type Edge
 } from '@/lib/graph-engine'
 import { GraphDatasetGenerator, type GraphEdge, type GraphDatasetMeta } from '@/components/graph-dataset-generator'
+import { PseudocodePanel } from '@/components/pseudocode-panel'
 
 const HOW_TO_STEPS = [
   { title: 'Configure Inputs', detail: 'Set graph edges and nodes in the Dataset tab depending on the algorithm.' },
@@ -763,6 +764,14 @@ export function GraphVisualizer({
               </div>
             </div>
           </Card>
+          
+          {/* Pseudocode Panel */}
+          {algorithm && (
+            <PseudocodePanel 
+              algorithm={algorithm} 
+              activeLine={currentStep?.activeLine} 
+            />
+          )}
         </aside>
 
         {/* Main Arena */}

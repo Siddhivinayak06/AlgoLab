@@ -11,8 +11,9 @@ export interface PuzzleState {
 
 export interface BranchBoundStep {
   type: '15-puzzle'
-  stepType: 'init' | 'expand' | 'evaluate' | 'solution' | 'done'
+  stepType: 'init' | 'expand' | 'evaluate' | 'process' | 'update' | 'solution' | 'done'
   note: string
+  activeLine: number
   comparisons: number
   operations: number
   statesExplored: number
@@ -114,6 +115,7 @@ export function run15Puzzle(initialBoard: number[][]): { steps: BranchBoundStep[
   const createStep = (
     stepType: BranchBoundStep['stepType'], 
     note: string, 
+    activeLine: number,
     board: number[][], 
     blankPos: {row: number; col: number}, 
     dir: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT' | null,
@@ -124,6 +126,7 @@ export function run15Puzzle(initialBoard: number[][]): { steps: BranchBoundStep[
       type: '15-puzzle',
       stepType,
       note,
+      activeLine,
       comparisons, operations, statesExplored: statesExploredCount, memoryUsage: (explored.size + pq.length) * 64,
       data: {
         currentBoard: cloneBoard(board),
@@ -137,7 +140,7 @@ export function run15Puzzle(initialBoard: number[][]): { steps: BranchBoundStep[
     }
   }
 
-  steps.push(createStep('init', `Initialized 15-Puzzle. Initial heuristic (Manhattan) is ${h}.`, initialBoard, {row: initialBlankR, col: initialBlankC}, null, h, 0))
+  steps.push(createStep('init', `Initialized 15-Puzzle. Initial heuristic (Manhattan) is ${h}.`, 1, initialBoard, {row: initialBlankR, col: initialBlankC}, null, h, 0))
 
   const moves = [
     { dr: -1, dc: 0, dir: 'UP' as const },
@@ -164,16 +167,16 @@ export function run15Puzzle(initialBoard: number[][]): { steps: BranchBoundStep[
     if (explored.has(stateStr)) continue
     explored.add(stateStr)
 
-    steps.push(createStep('evaluate', `Evaluating state with g=${current.g}, h=${current.h}, f=${current.cost}.`, current.board, {row: current.blankRow, col: current.blankCol}, current.moveDirection, current.h, current.g))
+    steps.push(createStep('evaluate', `Evaluating state with g=${current.g}, h=${current.h}, f=${current.cost}.`, 3, current.board, {row: current.blankRow, col: current.blankCol}, current.moveDirection, current.h, current.g))
 
     if (current.h === 0) { // Goal reached
       solutionState = current
-      steps.push(createStep('solution', `Goal state reached! Cost: ${current.g} moves.`, current.board, {row: current.blankRow, col: current.blankCol}, current.moveDirection, 0, current.g))
+      steps.push(createStep('solution', `Goal state reached! Cost: ${current.g} moves.`, 5, current.board, {row: current.blankRow, col: current.blankCol}, current.moveDirection, 0, current.g))
       break
     }
 
     // Expand
-    steps.push(createStep('expand', `Expanding current state into valid neighbors.`, current.board, {row: current.blankRow, col: current.blankCol}, current.moveDirection, current.h, current.g))
+    steps.push(createStep('expand', `Expanding current state into valid neighbors.`, 6, current.board, {row: current.blankRow, col: current.blankCol}, current.moveDirection, current.h, current.g))
     
     for (const move of moves) {
       const newR = current.blankRow + move.dr
@@ -190,6 +193,8 @@ export function run15Puzzle(initialBoard: number[][]): { steps: BranchBoundStep[
         const newStateStr = boardToString(newBoard)
         comparisons++
         
+        steps.push(createStep('process', `Generated new board state (move ${move.dir}).`, 7, newBoard, {row: newR, col: newC}, move.dir, calculateHeuristic(newBoard), current.g + 1))
+
         if (!explored.has(newStateStr)) {
           const newH = calculateHeuristic(newBoard)
           const newG = current.g + 1
@@ -206,6 +211,7 @@ export function run15Puzzle(initialBoard: number[][]): { steps: BranchBoundStep[
           })
           
           parentMap.set(newStateStr, current.board)
+          steps.push(createStep('update', `State is unexplored. Pushed to Priority Queue with f=${newG + newH}.`, 9, newBoard, {row: newR, col: newC}, move.dir, newH, newG))
         }
       }
     }
@@ -213,9 +219,9 @@ export function run15Puzzle(initialBoard: number[][]): { steps: BranchBoundStep[
 
   if (!solutionState) {
     if (statesExploredCount >= MAX_ITERATIONS) {
-      steps.push(createStep('done', `Exploration limit reached (${MAX_ITERATIONS} states). Solution not found within limit.`, initialBoard, {row: initialBlankR, col: initialBlankC}, null, h, 0))
+      steps.push(createStep('done', `Exploration limit reached (${MAX_ITERATIONS} states). Solution not found within limit.`, 9, initialBoard, {row: initialBlankR, col: initialBlankC}, null, h, 0))
     } else {
-      steps.push(createStep('done', `State space exhausted. Puzzle might be unsolvable.`, initialBoard, {row: initialBlankR, col: initialBlankC}, null, h, 0))
+      steps.push(createStep('done', `State space exhausted. Puzzle might be unsolvable.`, 9, initialBoard, {row: initialBlankR, col: initialBlankC}, null, h, 0))
     }
     return { steps, answer: null }
   }

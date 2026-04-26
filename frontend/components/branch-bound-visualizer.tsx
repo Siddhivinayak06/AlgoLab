@@ -24,6 +24,7 @@ import {
   run15Puzzle,
   BRANCH_BOUND_INFO, type BranchBoundStep
 } from '@/lib/branch-bound-engine'
+import { PseudocodePanel } from '@/components/pseudocode-panel'
 
 const HOW_TO_STEPS = [
   { title: 'Configure Initial State', detail: 'Set a solvable 4x4 puzzle configuration.' },
@@ -418,6 +419,12 @@ export function BranchBoundVisualizer({
               </div>
             </div>
           </Card>
+
+          {/* Pseudocode Panel */}
+          <PseudocodePanel 
+            algorithm="15-puzzle"
+            activeLine={currentStep?.activeLine} 
+          />
         </aside>
 
         <main className="flex flex-col gap-4">

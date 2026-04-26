@@ -48,9 +48,13 @@ interface GraphDatasetGeneratorProps {
   showJobFields?: boolean
   onJobsInputChange?: (input: string) => void
   jobsInput?: string
+  /** Algorithm mode to show specific tailored samples */
+  mode?: 'default' | 'tsp' | 'graph-coloring'
 }
 
-const SAMPLE_GRAPHS: Array<{ label: string; nodes: number; edges: GraphEdge[]; description: string }> = [
+type SampleGraph = { label: string; nodes: number; edges: GraphEdge[]; description: string }
+
+const DEFAULT_SAMPLES: SampleGraph[] = [
   {
     label: 'Triangle',
     nodes: 3,
@@ -78,52 +82,78 @@ const SAMPLE_GRAPHS: Array<{ label: string; nodes: number; edges: GraphEdge[]; d
     nodes: 5,
     description: '5 nodes, 9 edges',
     edges: [
-      { u: 0, v: 1, weight: 10 },
-      { u: 0, v: 2, weight: 3 },
-      { u: 1, v: 2, weight: 1 },
-      { u: 1, v: 3, weight: 2 },
-      { u: 2, v: 1, weight: 4 },
-      { u: 2, v: 3, weight: 8 },
-      { u: 2, v: 4, weight: 2 },
-      { u: 3, v: 4, weight: 7 },
-      { u: 4, v: 3, weight: 9 },
-    ]
-  },
-  {
-    label: 'Dense 6-node',
-    nodes: 6,
-    description: '6 nodes, 10 edges',
-    edges: [
-      { u: 0, v: 1, weight: 7 },
-      { u: 0, v: 2, weight: 9 },
-      { u: 0, v: 5, weight: 14 },
-      { u: 1, v: 2, weight: 10 },
-      { u: 1, v: 3, weight: 15 },
-      { u: 2, v: 3, weight: 11 },
-      { u: 2, v: 5, weight: 2 },
-      { u: 3, v: 4, weight: 6 },
-      { u: 4, v: 5, weight: 9 },
-      { u: 5, v: 3, weight: 4 },
-    ]
-  },
-  {
-    label: 'Negative Weights',
-    nodes: 5,
-    description: '5 nodes (Bellman-Ford)',
-    edges: [
-      { u: 0, v: 1, weight: 6 },
-      { u: 0, v: 2, weight: 7 },
-      { u: 1, v: 2, weight: 8 },
-      { u: 1, v: 3, weight: 5 },
-      { u: 1, v: 4, weight: -4 },
-      { u: 2, v: 3, weight: -3 },
-      { u: 2, v: 4, weight: 9 },
-      { u: 3, v: 1, weight: -2 },
-      { u: 4, v: 0, weight: 2 },
-      { u: 4, v: 3, weight: 7 },
+      { u: 0, v: 1, weight: 10 }, { u: 0, v: 2, weight: 3 }, { u: 1, v: 2, weight: 1 },
+      { u: 1, v: 3, weight: 2 }, { u: 2, v: 1, weight: 4 }, { u: 2, v: 3, weight: 8 },
+      { u: 2, v: 4, weight: 2 }, { u: 3, v: 4, weight: 7 }, { u: 4, v: 3, weight: 9 },
     ]
   },
 ]
+
+const GRAPH_COLORING_SAMPLES: SampleGraph[] = [
+  {
+    label: 'Bipartite (Star)',
+    nodes: 5,
+    description: 'Center connected to 4. 2-colorable.',
+    edges: [
+      { u: 0, v: 1, weight: 1 }, { u: 0, v: 2, weight: 1 }, { u: 0, v: 3, weight: 1 }, { u: 0, v: 4, weight: 1 }
+    ]
+  },
+  {
+    label: 'Odd Cycle',
+    nodes: 5,
+    description: 'C5 Graph. 3-colorable.',
+    edges: [
+      { u: 0, v: 1, weight: 1 }, { u: 1, v: 2, weight: 1 }, { u: 2, v: 3, weight: 1 }, { u: 3, v: 4, weight: 1 }, { u: 4, v: 0, weight: 1 }
+    ]
+  },
+  {
+    label: 'Wheel Graph',
+    nodes: 6,
+    description: 'W6 Graph. 4-colorable.',
+    edges: [
+      { u: 0, v: 1, weight: 1 }, { u: 0, v: 2, weight: 1 }, { u: 0, v: 3, weight: 1 }, { u: 0, v: 4, weight: 1 }, { u: 0, v: 5, weight: 1 },
+      { u: 1, v: 2, weight: 1 }, { u: 2, v: 3, weight: 1 }, { u: 3, v: 4, weight: 1 }, { u: 4, v: 5, weight: 1 }, { u: 5, v: 1, weight: 1 }
+    ]
+  },
+  {
+    label: 'Complete Graph',
+    nodes: 4,
+    description: 'K4 Graph. 4-colorable.',
+    edges: [
+      { u: 0, v: 1, weight: 1 }, { u: 0, v: 2, weight: 1 }, { u: 0, v: 3, weight: 1 },
+      { u: 1, v: 2, weight: 1 }, { u: 1, v: 3, weight: 1 }, { u: 2, v: 3, weight: 1 }
+    ]
+  }
+]
+
+const TSP_SAMPLES: SampleGraph[] = [
+  {
+    label: 'Complete K4',
+    nodes: 4,
+    description: '4 nodes, all connected',
+    edges: [
+      { u: 0, v: 1, weight: 10 }, { u: 0, v: 2, weight: 15 }, { u: 0, v: 3, weight: 20 },
+      { u: 1, v: 2, weight: 35 }, { u: 1, v: 3, weight: 25 }, { u: 2, v: 3, weight: 30 }
+    ]
+  },
+  {
+    label: 'Complete K5',
+    nodes: 5,
+    description: '5 nodes, all connected',
+    edges: [
+      { u: 0, v: 1, weight: 12 }, { u: 0, v: 2, weight: 10 }, { u: 0, v: 3, weight: 19 }, { u: 0, v: 4, weight: 8 },
+      { u: 1, v: 2, weight: 3 }, { u: 1, v: 3, weight: 7 }, { u: 1, v: 4, weight: 2 },
+      { u: 2, v: 3, weight: 6 }, { u: 2, v: 4, weight: 20 },
+      { u: 3, v: 4, weight: 4 }
+    ]
+  }
+]
+
+const getSamples = (mode: 'default' | 'tsp' | 'graph-coloring' = 'default') => {
+  if (mode === 'graph-coloring') return GRAPH_COLORING_SAMPLES
+  if (mode === 'tsp') return TSP_SAMPLES
+  return DEFAULT_SAMPLES
+}
 
 function edgesToText(edges: GraphEdge[]): string {
   return edges.map(e => `${e.u},${e.v},${e.weight}`).join('\n')
@@ -185,17 +215,25 @@ export function GraphDatasetGenerator({
   showSourceNode = false,
   onSourceNodeChange,
   sourceNode = 0,
+  mode = 'default'
 }: GraphDatasetGeneratorProps) {
+  const samples = useMemo(() => getSamples(mode), [mode])
+  
   const [nodeCount, setNodeCount] = useState(5)
   const [density, setDensity] = useState(40)
-  const [edgesText, setEdgesText] = useState(edgesToText(SAMPLE_GRAPHS[2].edges))
+  const [edgesText, setEdgesText] = useState(edgesToText(samples[0]?.edges || []))
   const [showCustom, setShowCustom] = useState(false)
   const [showSamples, setShowSamples] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [preview, setPreview] = useState<GraphEdge[]>(SAMPLE_GRAPHS[2].edges)
+  const [preview, setPreview] = useState<GraphEdge[]>(samples[0]?.edges || [])
+
+  // When mode changes, update the initial text and preview if we haven't modified it recently
+  // For a better UX, maybe we should let users load samples explicitly instead of forcing a reset
+  // So we'll just keep the initial states as they are, but provide the samples in the UI.
 
   const handleRandomGenerate = useCallback(() => {
     const edges = generateRandomGraph(nodeCount, density)
+    // If it's graph coloring, we don't care about weights, so we could strip them, but the engine ignores them anyway.
     setPreview(edges)
     setEdgesText(edgesToText(edges))
     setErrorMessage(null)
@@ -210,16 +248,19 @@ export function GraphDatasetGenerator({
       setErrorMessage(error)
       return
     }
-    // Infer node count from edges
-    const maxNode = Math.max(...edges.flatMap(e => [e.u, e.v]))
-    const inferredNodeCount = maxNode + 1
+    const maxNode = Math.max(...edges.flatMap(e => [e.u, e.v]), -1)
+    const inferredNodeCount = maxNode >= 0 ? maxNode + 1 : 0
+    if (inferredNodeCount === 0) {
+      setErrorMessage('No valid nodes found.')
+      return
+    }
     setNodeCount(inferredNodeCount)
     setPreview(edges)
     setErrorMessage(null)
     onDatasetReady(inferredNodeCount, edges, { source: 'custom', nodeCount: inferredNodeCount, edgeCount: edges.length })
   }, [edgesText, onDatasetReady])
 
-  const handleLoadSample = useCallback((sample: typeof SAMPLE_GRAPHS[0]) => {
+  const handleLoadSample = useCallback((sample: SampleGraph) => {
     setNodeCount(sample.nodes)
     setPreview(sample.edges)
     setEdgesText(edgesToText(sample.edges))
@@ -232,8 +273,9 @@ export function GraphDatasetGenerator({
   // SVG preview of graph
   const graphPreview = useMemo(() => {
     if (preview.length === 0) return null
-    const maxNode = Math.max(...preview.flatMap(e => [e.u, e.v]))
-    const n = maxNode + 1
+    const maxNode = Math.max(...preview.flatMap(e => [e.u, e.v]), -1)
+    const n = maxNode >= 0 ? maxNode + 1 : 0
+    if (n === 0) return null
     const positions: Record<number, { x: number; y: number }> = {}
     const radius = 70
     const cx = 100
@@ -305,7 +347,7 @@ export function GraphDatasetGenerator({
           >
             <Label className="text-xs font-medium uppercase tracking-[0.14em] text-foreground/80">Sample Graphs</Label>
             <div className="flex flex-wrap gap-2">
-              {SAMPLE_GRAPHS.map((sample) => (
+              {samples.map((sample) => (
                 <Button
                   key={sample.label} type="button" variant="outline"
                   className="h-auto rounded-lg px-3 py-2 text-left border-border/50 bg-background/20 hover:bg-primary/10 hover:text-primary hover:border-primary/30 flex flex-col items-start gap-0.5"

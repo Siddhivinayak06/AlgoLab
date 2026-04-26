@@ -39,6 +39,7 @@ export interface GraphStep {
   type: 'multistage' | 'bellman-ford' | 'floyd-warshall'
   stepType: 'init' | 'process' | 'update' | 'check' | 'done' | 'spt-build'
   note: string
+  activeLine: number
   comparisons: number
   operations: number
   statesExplored: number
@@ -96,11 +97,12 @@ export function runMultistage(stages: number[][], edges: Edge[]): { steps: Graph
     costs[sinkStage[0]] = 0
   }
 
-  const createStep = (stepType: GraphStep['stepType'], note: string, currentStage: number, currentNode: number | null): GraphStep => {
+  const createStep = (stepType: GraphStep['stepType'], note: string, activeLine: number, currentStage: number, currentNode: number | null): GraphStep => {
     return {
       type: 'multistage',
       stepType,
       note,
+      activeLine,
       comparisons, operations, statesExplored, memoryUsage: n * 8,
       data: {
         stages,
@@ -114,7 +116,7 @@ export function runMultistage(stages: number[][], edges: Edge[]): { steps: Graph
     }
   }
 
-  steps.push(createStep('init', `Initialized costs to Infinity, sink node cost to 0.`, stages.length - 1, null))
+  steps.push(createStep('init', `Initialized costs to Infinity, sink node cost to 0.`, 1, stages.length - 1, null))
 
   // Work backwards from second to last stage
   for (let i = stages.length - 2; i >= 0; i--) {
@@ -122,7 +124,7 @@ export function runMultistage(stages: number[][], edges: Edge[]): { steps: Graph
     
     for (const u of stageNodes) {
       statesExplored++
-      steps.push(createStep('process', `Evaluating node ${u} in stage ${i}.`, i, u))
+      steps.push(createStep('process', `Evaluating node ${u} in stage ${i}.`, 3, i, u))
       
       let minCost = Infinity
       
@@ -131,7 +133,7 @@ export function runMultistage(stages: number[][], edges: Edge[]): { steps: Graph
         operations++
         const candidateCost = weight + costs[v]
         
-        steps.push(createStep('check', `Checking edge (${u}, ${v}) weight ${weight} + cost(${v}) ${costs[v]} = ${candidateCost}.`, i, u))
+        steps.push(createStep('check', `Checking edge (${u}, ${v}) weight ${weight} + cost(${v}) ${costs[v]} = ${candidateCost}.`, 5, i, u))
         
         if (candidateCost < minCost) {
           minCost = candidateCost
@@ -140,11 +142,11 @@ export function runMultistage(stages: number[][], edges: Edge[]): { steps: Graph
       }
       
       costs[u] = minCost
-      steps.push(createStep('update', `Minimum cost for node ${u} is ${costs[u]}.`, i, u))
+      steps.push(createStep('update', `Minimum cost for node ${u} is ${costs[u]}.`, 8, i, u))
     }
   }
 
-  steps.push(createStep('done', `Multistage graph shortest path complete. Minimum cost from source is ${costs[0]}.`, 0, null))
+  steps.push(createStep('done', `Multistage graph shortest path complete. Minimum cost from source is ${costs[0]}.`, 8, 0, null))
   return { steps, answer: costs[0] }
 }
 
@@ -159,11 +161,12 @@ export function runBellmanFord(nodes: number, edges: Edge[], source: number): { 
   const sptEdges: Edge[] = []
   distances[source] = 0
 
-  const createStep = (stepType: GraphStep['stepType'], note: string, iteration: number, relaxedEdge: Edge | null, negativeCycle: boolean): GraphStep => {
+  const createStep = (stepType: GraphStep['stepType'], note: string, activeLine: number, iteration: number, relaxedEdge: Edge | null, negativeCycle: boolean): GraphStep => {
     return {
       type: 'bellman-ford',
       stepType,
       note,
+      activeLine,
       comparisons, operations, statesExplored, memoryUsage: nodes * 8,
       data: {
         nodes: Array.from({ length: nodes }, (_, i) => i),
@@ -178,14 +181,14 @@ export function runBellmanFord(nodes: number, edges: Edge[], source: number): { 
     }
   }
 
-  steps.push(createStep('init', `Initialized distances to Infinity, source node ${source} to 0.`, 0, null, false))
+  steps.push(createStep('init', `Initialized distances to Infinity, source node ${source} to 0.`, 1, 0, null, false))
 
   // Relax edges |V| - 1 times
   for (let i = 1; i < nodes; i++) {
     statesExplored++
     let anyRelaxed = false
 
-    steps.push(createStep('process', `Starting iteration ${i}.`, i, null, false))
+    steps.push(createStep('process', `Starting iteration ${i}.`, 2, i, null, false))
 
     for (const edge of edges) {
       const { u, v, weight } = edge
@@ -196,12 +199,14 @@ export function runBellmanFord(nodes: number, edges: Edge[], source: number): { 
         distances[v] = distances[u] + weight
         parent[v] = u
         anyRelaxed = true
-        steps.push(createStep('update', `Relaxed edge (${u}, ${v}). New distance for ${v} is ${distances[v]}.`, i, edge, false))
+        steps.push(createStep('update', `Relaxed edge (${u}, ${v}). New distance for ${v} is ${distances[v]}.`, 5, i, edge, false))
+      } else {
+        steps.push(createStep('check', `Checked edge (${u}, ${v}). No relaxation needed.`, 4, i, edge, false))
       }
     }
 
     if (!anyRelaxed) {
-      steps.push(createStep('process', `No edges relaxed in iteration ${i}. Early termination.`, i, null, false))
+      steps.push(createStep('process', `No edges relaxed in iteration ${i}. Early termination.`, 5, i, null, false))
       break
     }
   }
@@ -213,7 +218,7 @@ export function runBellmanFord(nodes: number, edges: Edge[], source: number): { 
     const { u, v, weight } = edge
     if (distances[u] !== Infinity && distances[u] + weight < distances[v]) {
       negativeCycle = true
-      steps.push(createStep('check', `Negative weight cycle detected at edge (${u}, ${v}).`, nodes, edge, true))
+      steps.push(createStep('check', `Negative weight cycle detected at edge (${u}, ${v}).`, 8, nodes, edge, true))
       break
     }
   }
@@ -225,11 +230,11 @@ export function runBellmanFord(nodes: number, edges: Edge[], source: number): { 
         const u = parent[v]
         const weight = edges.find(e => e.u === u && e.v === v)?.weight || 0
         sptEdges.push({ u, v, weight })
-        steps.push(createStep('spt-build', `Added edge (${u}, ${v}) to Shortest Path Tree.`, nodes, null, false))
+        steps.push(createStep('spt-build', `Added edge (${u}, ${v}) to Shortest Path Tree.`, 5, nodes, null, false))
       }
     }
 
-    steps.push(createStep('done', `Bellman-Ford algorithm complete. Shortest Path Tree built.`, nodes, null, false))
+    steps.push(createStep('done', `Bellman-Ford algorithm complete. Shortest Path Tree built.`, 5, nodes, null, false))
   }
 
   return { steps, answer: distances }
@@ -252,11 +257,12 @@ export function runFloydWarshall(nodes: number, edges: Edge[]): { steps: GraphSt
     // If undirected, add reverse edge too. Assuming directed here for FW generally.
   }
 
-  const createStep = (stepType: GraphStep['stepType'], note: string, k: number, i: number, j: number, previousValue: number, newValue: number, improved: boolean): GraphStep => {
+  const createStep = (stepType: GraphStep['stepType'], note: string, activeLine: number, k: number, i: number, j: number, previousValue: number, newValue: number, improved: boolean): GraphStep => {
     return {
       type: 'floyd-warshall',
       stepType,
       note,
+      activeLine,
       comparisons, operations, statesExplored, memoryUsage: nodes * nodes * 8,
       data: {
         matrix: matrix.map(row => [...row]),
@@ -265,11 +271,11 @@ export function runFloydWarshall(nodes: number, edges: Edge[]): { steps: GraphSt
     }
   }
 
-  steps.push(createStep('init', `Initialized distance matrix with edge weights.`, -1, -1, -1, 0, 0, false))
+  steps.push(createStep('init', `Initialized distance matrix with edge weights.`, 1, -1, -1, -1, 0, 0, false))
 
   for (let k = 0; k < nodes; k++) {
     statesExplored++
-    steps.push(createStep('process', `Considering node ${k} as an intermediate vertex.`, k, -1, -1, 0, 0, false))
+    steps.push(createStep('process', `Considering node ${k} as an intermediate vertex.`, 2, k, -1, -1, 0, 0, false))
     
     for (let i = 0; i < nodes; i++) {
       for (let j = 0; j < nodes; j++) {
@@ -280,18 +286,17 @@ export function runFloydWarshall(nodes: number, edges: Edge[]): { steps: GraphSt
           const candidate = matrix[i][k] + matrix[k][j]
           const current = matrix[i][j]
           
+          steps.push(createStep('check', `Checking if path from ${i} to ${j} via ${k} (${candidate}) is better than current (${current}).`, 5, k, i, j, current, candidate, false))
+
           if (candidate < current) {
             matrix[i][j] = candidate
-            steps.push(createStep('update', `Improved path from ${i} to ${j} via ${k}. New cost: ${candidate}.`, k, i, j, current, candidate, true))
-          } else {
-            // Optional: Too many steps if we record every check. Only log updates to save memory, or log a sample.
-            // steps.push(createStep('check', `Path from ${i} to ${j} via ${k} (${candidate}) is not better than current (${current}).`, k, i, j, current, candidate, false))
+            steps.push(createStep('update', `Improved path from ${i} to ${j} via ${k}. New cost: ${candidate}.`, 6, k, i, j, current, candidate, true))
           }
         }
       }
     }
   }
 
-  steps.push(createStep('done', `Floyd-Warshall algorithm complete. All-pairs shortest paths computed.`, nodes, -1, -1, 0, 0, false))
+  steps.push(createStep('done', `Floyd-Warshall algorithm complete. All-pairs shortest paths computed.`, 6, nodes, -1, -1, 0, 0, false))
   return { steps, answer: matrix }
 }

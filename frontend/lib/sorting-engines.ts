@@ -10,6 +10,21 @@ export function createIdArray(array: number[]) {
   return array.map((value, idx) => ({ id: `id-${value}-${idx}-${Math.random().toString(36).substring(2, 9)}`, value }))
 }
 
+// Helper to deduplicate idArray snapshots.
+// During intermediate algorithm steps (shifts, merges, counting writes),
+// the same ID can temporarily appear at multiple positions.
+// This ensures every snapshot has unique IDs for React keys.
+function safeIdSnapshot(idArr: {id: string, value: number}[]): {id: string, value: number}[] {
+  const seen = new Set<string>()
+  return idArr.map((item, idx) => {
+    if (seen.has(item.id)) {
+      return { ...item, id: `${item.id}-s${idx}` }
+    }
+    seen.add(item.id)
+    return item
+  })
+}
+
 export function generateBubbleSort(array: number[]): SortGeneratorResult {
   const arr = [...array]
   const idArray = createIdArray(arr)
@@ -28,7 +43,7 @@ export function generateBubbleSort(array: number[]): SortGeneratorResult {
 
       steps.push({
         array: [...arr],
-        idArray: [...idArray],
+        idArray: safeIdSnapshot(idArray),
         comparing: [j, j + 1],
         swapped: false,
         operations,
@@ -47,7 +62,7 @@ export function generateBubbleSort(array: number[]): SortGeneratorResult {
 
         steps.push({
           array: [...arr],
-          idArray: [...idArray],
+          idArray: safeIdSnapshot(idArray),
           comparing: [j, j + 1],
           swapped: true,
           operations,
@@ -60,7 +75,7 @@ export function generateBubbleSort(array: number[]): SortGeneratorResult {
       } else {
         steps.push({
           array: [...arr],
-          idArray: [...idArray],
+          idArray: safeIdSnapshot(idArray),
           comparing: [j, j + 1],
           swapped: false,
           operations,
@@ -76,7 +91,7 @@ export function generateBubbleSort(array: number[]): SortGeneratorResult {
 
   steps.push({
     array: [...arr],
-    idArray: [...idArray],
+    idArray: safeIdSnapshot(idArray),
     comparing: [],
     swapped: false,
     operations,
@@ -100,7 +115,7 @@ export function generateSelectionSort(array: number[]): SortGeneratorResult {
     let minIndex = i
     steps.push({
         array: [...arr],
-        idArray: [...idArray],
+        idArray: safeIdSnapshot(idArray),
         comparing: [minIndex],
         operations,
         comparisons,
@@ -118,7 +133,7 @@ export function generateSelectionSort(array: number[]): SortGeneratorResult {
 
       steps.push({
         array: [...arr],
-        idArray: [...idArray],
+        idArray: safeIdSnapshot(idArray),
         comparing: [minIndex, j],
         swapped: false,
         operations,
@@ -133,7 +148,7 @@ export function generateSelectionSort(array: number[]): SortGeneratorResult {
         minIndex = j
         steps.push({
             array: [...arr],
-            idArray: [...idArray],
+            idArray: safeIdSnapshot(idArray),
             comparing: [minIndex],
             swapped: false,
             operations,
@@ -156,7 +171,7 @@ export function generateSelectionSort(array: number[]): SortGeneratorResult {
 
       steps.push({
         array: [...arr],
-        idArray: [...idArray],
+        idArray: safeIdSnapshot(idArray),
         comparing: [i, minIndex],
         swapped: true,
         operations,
@@ -171,7 +186,7 @@ export function generateSelectionSort(array: number[]): SortGeneratorResult {
 
   steps.push({
     array: [...arr],
-    idArray: [...idArray],
+    idArray: safeIdSnapshot(idArray),
     comparing: [],
     swapped: false,
     operations,
@@ -205,7 +220,7 @@ export function generateInsertionSort(array: number[]): SortGeneratorResult {
 
       steps.push({
         array: [...arr],
-        idArray: [...idArray],
+        idArray: safeIdSnapshot(idArray),
         comparing: [j, j + 1],
         swapped: false,
         operations,
@@ -219,7 +234,7 @@ export function generateInsertionSort(array: number[]): SortGeneratorResult {
       if (leftValue <= key) {
         steps.push({
           array: [...arr],
-          idArray: [...idArray],
+          idArray: safeIdSnapshot(idArray),
           comparing: [j],
           swapped: false,
           operations,
@@ -238,7 +253,7 @@ export function generateInsertionSort(array: number[]): SortGeneratorResult {
 
       steps.push({
         array: [...arr],
-        idArray: [...idArray],
+        idArray: safeIdSnapshot(idArray),
         comparing: [j, j + 1],
         swapped: true,
         operations,
@@ -259,7 +274,7 @@ export function generateInsertionSort(array: number[]): SortGeneratorResult {
 
     steps.push({
       array: [...arr],
-      idArray: [...idArray],
+      idArray: safeIdSnapshot(idArray),
       comparing: [j + 1],
       swapped: true,
       operations,
@@ -274,7 +289,7 @@ export function generateInsertionSort(array: number[]): SortGeneratorResult {
 
   steps.push({
     array: [...arr],
-    idArray: [...idArray],
+    idArray: safeIdSnapshot(idArray),
     comparing: [],
     swapped: false,
     operations,
@@ -299,7 +314,7 @@ export function generateQuickSort(array: number[]): SortGeneratorResult {
 
     steps.push({
       array: [...arr],
-      idArray: [...idArray],
+      idArray: safeIdSnapshot(idArray),
       comparing: [high],
       swapped: false,
       operations,
@@ -320,7 +335,7 @@ export function generateQuickSort(array: number[]): SortGeneratorResult {
 
       steps.push({
         array: [...arr],
-        idArray: [...idArray],
+        idArray: safeIdSnapshot(idArray),
         comparing: [j, high],
         swapped: false,
         operations,
@@ -343,7 +358,7 @@ export function generateQuickSort(array: number[]): SortGeneratorResult {
 
         steps.push({
           array: [...arr],
-          idArray: [...idArray],
+          idArray: safeIdSnapshot(idArray),
           comparing: [i, j],
           swapped: true,
           operations,
@@ -369,7 +384,7 @@ export function generateQuickSort(array: number[]): SortGeneratorResult {
 
     steps.push({
       array: [...arr],
-      idArray: [...idArray],
+      idArray: safeIdSnapshot(idArray),
       comparing: [pivotTargetIndex, high],
       swapped: true,
       operations,
@@ -399,7 +414,7 @@ export function generateQuickSort(array: number[]): SortGeneratorResult {
 
   steps.push({
     array: [...arr],
-    idArray: [...idArray],
+    idArray: safeIdSnapshot(idArray),
     comparing: [],
     swapped: false,
     operations,
@@ -437,7 +452,7 @@ export function generateMergeSort(array: number[]): SortGeneratorResult {
 
       steps.push({
         array: [...arr],
-        idArray: [...idArray],
+        idArray: safeIdSnapshot(idArray),
         comparing: [left + i, mid + 1 + j],
         swapped: false,
         operations,
@@ -458,7 +473,7 @@ export function generateMergeSort(array: number[]): SortGeneratorResult {
 
       steps.push({
         array: [...arr],
-        idArray: [...idArray],
+        idArray: safeIdSnapshot(idArray),
         comparing: [k],
         swapped: true,
         operations,
@@ -487,7 +502,7 @@ export function generateMergeSort(array: number[]): SortGeneratorResult {
 
       steps.push({
         array: [...arr],
-        idArray: [...idArray],
+        idArray: safeIdSnapshot(idArray),
         comparing: [k],
         swapped: true,
         operations,
@@ -511,7 +526,7 @@ export function generateMergeSort(array: number[]): SortGeneratorResult {
 
       steps.push({
         array: [...arr],
-        idArray: [...idArray],
+        idArray: safeIdSnapshot(idArray),
         comparing: [k],
         swapped: true,
         operations,
@@ -540,7 +555,7 @@ export function generateMergeSort(array: number[]): SortGeneratorResult {
 
   steps.push({
     array: [...arr],
-    idArray: [...idArray],
+    idArray: safeIdSnapshot(idArray),
     comparing: [],
     swapped: false,
     operations,
@@ -570,7 +585,7 @@ export function generateHeapSort(array: number[]): SortGeneratorResult {
 
       steps.push({
         array: [...arr],
-        idArray: [...idArray],
+        idArray: safeIdSnapshot(idArray),
         comparing: [largest, left],
         swapped: false,
         operations,
@@ -592,7 +607,7 @@ export function generateHeapSort(array: number[]): SortGeneratorResult {
 
       steps.push({
         array: [...arr],
-        idArray: [...idArray],
+        idArray: safeIdSnapshot(idArray),
         comparing: [largest, right],
         swapped: false,
         operations,
@@ -615,7 +630,7 @@ export function generateHeapSort(array: number[]): SortGeneratorResult {
 
       steps.push({
         array: [...arr],
-        idArray: [...idArray],
+        idArray: safeIdSnapshot(idArray),
         comparing: [rootIndex, largest],
         swapped: true,
         operations,
@@ -643,7 +658,7 @@ export function generateHeapSort(array: number[]): SortGeneratorResult {
 
     steps.push({
       array: [...arr],
-      idArray: [...idArray],
+      idArray: safeIdSnapshot(idArray),
       comparing: [0, end],
       swapped: true,
       operations,
@@ -659,7 +674,7 @@ export function generateHeapSort(array: number[]): SortGeneratorResult {
 
   steps.push({
     array: [...arr],
-    idArray: [...idArray],
+    idArray: safeIdSnapshot(idArray),
     comparing: [],
     swapped: false,
     operations,
@@ -695,7 +710,7 @@ export function generateShellSort(array: number[]): SortGeneratorResult {
 
         steps.push({
           array: [...arr],
-          idArray: [...idArray],
+          idArray: safeIdSnapshot(idArray),
           comparing: [j - gap, j],
           swapped: false,
           operations,
@@ -716,7 +731,7 @@ export function generateShellSort(array: number[]): SortGeneratorResult {
 
         steps.push({
           array: [...arr],
-          idArray: [...idArray],
+          idArray: safeIdSnapshot(idArray),
           comparing: [j - gap, j],
           swapped: true,
           operations,
@@ -737,7 +752,7 @@ export function generateShellSort(array: number[]): SortGeneratorResult {
 
       steps.push({
         array: [...arr],
-        idArray: [...idArray],
+        idArray: safeIdSnapshot(idArray),
         comparing: [j],
         swapped: true,
         operations,
@@ -755,7 +770,7 @@ export function generateShellSort(array: number[]): SortGeneratorResult {
 
   steps.push({
     array: [...arr],
-    idArray: [...idArray],
+    idArray: safeIdSnapshot(idArray),
     comparing: [],
     swapped: false,
     operations,
@@ -785,17 +800,36 @@ export function generateCountingSort(array: number[]): SortGeneratorResult {
   const originalArr = [...arr]
   const originalIds = [...idArray]
 
+  // Pre-compute the fully sorted id and value arrays
+  const sortedIds = sortedIndices.map(origIdx => originalIds[origIdx])
+  const sortedArr = sortedIndices.map(origIdx => originalArr[origIdx])
+
   for (let i = 0; i < arr.length; i++) {
-    const originalIndex = sortedIndices[i]
-    arr[i] = originalArr[originalIndex]
-    idArray[i] = originalIds[originalIndex]
+    arr[i] = sortedArr[i]
     
     comparisons++
     operations++
 
+    // Build a snapshot idArray that is guaranteed to have unique IDs.
+    // Placed items (0..i) use their sorted IDs.
+    // Unplaced items (i+1..n-1) need care: if the original ID at position k
+    // was already used by a placed item, we generate a temporary unique ID.
+    const placedIdSet = new Set(sortedIds.slice(0, i + 1))
+    const snapshotIds = arr.map((val, idx) => {
+      if (idx <= i) {
+        return sortedIds[idx]
+      }
+      // If this original ID collides with a placed ID, use a temp unique ID
+      const origId = originalIds[idx]
+      if (placedIdSet.has(origId)) {
+        return { ...origId, id: `${origId.id}-tmp-${idx}` }
+      }
+      return origId
+    })
+
     steps.push({
       array: [...arr],
-      idArray: [...idArray],
+      idArray: safeIdSnapshot(snapshotIds),
       comparing: [i],
       swapped: true,
       operations,
@@ -808,9 +842,14 @@ export function generateCountingSort(array: number[]): SortGeneratorResult {
     })
   }
 
+  // Update idArray to the fully sorted version for the final "done" step
+  for (let i = 0; i < idArray.length; i++) {
+    idArray[i] = sortedIds[i]
+  }
+
   steps.push({
     array: [...arr],
-    idArray: [...idArray],
+    idArray: safeIdSnapshot(idArray),
     comparing: [],
     swapped: false,
     operations,
@@ -862,7 +901,7 @@ export function generateRadixSort(array: number[]): SortGeneratorResult {
       
       steps.push({
         array: [...arr],
-        idArray: [...idArray],
+        idArray: safeIdSnapshot(idArray),
         comparing: [i],
         swapped: true,
         operations,
@@ -878,7 +917,7 @@ export function generateRadixSort(array: number[]): SortGeneratorResult {
 
   steps.push({
     array: [...arr],
-    idArray: [...idArray],
+    idArray: safeIdSnapshot(idArray),
     comparing: [],
     swapped: false,
     operations,

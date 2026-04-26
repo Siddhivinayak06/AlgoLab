@@ -25,6 +25,7 @@ import {
   BACKTRACKING_INFO, type BacktrackingStep, type Edge, type TreeNode
 } from '@/lib/backtracking-engine'
 import { GraphDatasetGenerator, type GraphEdge, type GraphDatasetMeta } from '@/components/graph-dataset-generator'
+import { PseudocodePanel } from '@/components/pseudocode-panel'
 
 const HOW_TO_STEPS = [
   { title: 'Configure Inputs', detail: 'Set board size, items, or graph edges in the Dataset tab depending on the algorithm.' },
@@ -65,6 +66,7 @@ export function BacktrackingVisualizer({
   const [steps, setSteps] = useState<BacktrackingStep[]>([])
   const [currentIndex, setCurrentIndex] = useState(-1)
   const [stats, setStats] = useState({ comparisons: 0, operations: 0, statesExplored: 0, memoryUsage: 0 })
+  const [nQueensSolutions, setNQueensSolutions] = useState<{ row: number; col: number }[][]>([])
 
   // Playback
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -145,7 +147,9 @@ export function BacktrackingVisualizer({
     
     try {
       if (algorithm === 'n-queens') {
-        result = runNQueens(nQueensSize)
+        const nqResult = runNQueens(nQueensSize)
+        result = nqResult
+        setNQueensSolutions(nqResult.answer)
       } else if (algorithm === 'sum-of-subsets') {
         result = runSumOfSubsets(parseSubsetItems(), subsetTarget)
       } else if (algorithm === 'graph-coloring') {
@@ -203,6 +207,7 @@ export function BacktrackingVisualizer({
     indexRef.current = -1
     setStepMessage('Configure inputs and start visualization.')
     setStats({ comparisons: 0, operations: 0, statesExplored: 0, memoryUsage: 0 })
+    setNQueensSolutions([])
   }, [stopPlayback])
 
   const handleDatasetReady = useCallback((nodes: number, newEdges: GraphEdge[], meta: GraphDatasetMeta) => {
@@ -240,40 +245,89 @@ export function BacktrackingVisualizer({
     if (!currentStep || currentStep.type !== 'n-queens') return null
     const data = currentStep.data as any
     const n = data.board.length
+    const attackedSet = new Set((data.attackedCells || []).map((c: any) => `${c.row}-${c.col}`))
+    const isSolution = currentStep.stepType === 'solution'
     
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-6 gap-6">
-        <div 
-          className="grid border-2 border-border/50 rounded-sm overflow-hidden"
-          style={{ gridTemplateColumns: `repeat(${n}, 1fr)` }}
-        >
-          {data.board.map((row: number[], rIdx: number) => (
-            row.map((cell: number, cIdx: number) => {
-              const isDark = (rIdx + cIdx) % 2 === 1
-              const isConflict = data.conflicts.some((c: any) => c.row === rIdx && c.col === cIdx)
-              const isCurrent = data.currentRow === rIdx && data.currentCol === cIdx
-              const isBacktracking = data.isBacktracking && isCurrent
-              
-              return (
-                <div 
-                  key={`${rIdx}-${cIdx}`}
-                  className={cn(
-                    "w-12 h-12 flex items-center justify-center transition-colors duration-300 relative",
-                    isDark ? "bg-primary/20" : "bg-background",
-                    isCurrent ? (isBacktracking ? "ring-2 ring-inset ring-destructive shadow-[inset_0_0_10px_rgba(var(--destructive-rgb),0.5)]" : "ring-2 ring-inset ring-emerald-500 shadow-[inset_0_0_10px_rgba(16,185,129,0.5)]") : "",
-                    isConflict ? "bg-destructive/30" : ""
-                  )}
-                >
-                  {cell === 1 && (
-                    <span className="text-2xl drop-shadow-md">♕</span>
-                  )}
-                  {isCurrent && cell === 0 && !isBacktracking && (
-                    <span className="text-2xl opacity-40 text-emerald-500">♕</span>
-                  )}
+      <div className="flex-1 flex flex-col items-center justify-center p-4 gap-4">
+        <div className="flex items-center gap-3">
+          <Badge variant="outline" className={cn("text-xs px-3 py-1 font-bold", isSolution ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400" : "border-primary/30 text-primary")}>
+            ♕ {data.queens.length} / {n}
+          </Badge>
+          {data.solutionCount > 0 && (
+            <Badge variant="outline" className="text-xs px-3 py-1 border-emerald-500/50 bg-emerald-500/10 text-emerald-400 font-bold">
+              ✓ {data.solutionCount} found
+            </Badge>
+          )}
+        </div>
+        <div className="flex">
+          <div className="flex flex-col mr-1.5 pt-5">
+            {Array.from({ length: n }, (_, i) => (
+              <div key={i} className="h-14 flex items-center justify-center w-4">
+                <span className="text-[10px] font-mono font-bold text-muted-foreground/50">{i}</span>
+              </div>
+            ))}
+          </div>
+          <div>
+            <div className="flex mb-1">
+              {Array.from({ length: n }, (_, i) => (
+                <div key={i} className="w-14 flex items-center justify-center">
+                  <span className="text-[10px] font-mono font-bold text-muted-foreground/50">{i}</span>
                 </div>
-              )
-            })
-          ))}
+              ))}
+            </div>
+            <div 
+              className={cn("grid rounded-lg overflow-hidden shadow-lg transition-all duration-500", isSolution ? "ring-2 ring-emerald-500 shadow-emerald-500/20" : "ring-1 ring-border/40")}
+              style={{ gridTemplateColumns: `repeat(${n}, 1fr)` }}
+            >
+              {data.board.map((row: number[], rIdx: number) => (
+                row.map((cell: number, cIdx: number) => {
+                  const isDark = (rIdx + cIdx) % 2 === 1
+                  const isConflict = data.conflicts.some((c: any) => c.row === rIdx && c.col === cIdx)
+                  const isCurrent = data.currentRow === rIdx && data.currentCol === cIdx
+                  const isBacktracking = data.isBacktracking && isCurrent
+                  const isAttacked = attackedSet.has(`${rIdx}-${cIdx}`) && cell === 0
+                  const hasQueen = cell === 1
+                  return (
+                    <div key={`${rIdx}-${cIdx}`}
+                      className={cn(
+                        "w-14 h-14 flex items-center justify-center transition-all duration-200 relative",
+                        isDark ? "bg-slate-600/40" : "bg-slate-200/20",
+                        isConflict && "bg-red-500/25",
+                        isCurrent && !isBacktracking && "ring-2 ring-inset ring-emerald-400 bg-emerald-400/15",
+                        isCurrent && isBacktracking && "ring-2 ring-inset ring-red-400 bg-red-400/10",
+                        isSolution && hasQueen && "bg-emerald-400/20",
+                      )}
+                    >
+                      {isAttacked && !isCurrent && !isConflict && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-1.5 h-1.5 rounded-full bg-red-400/30" />
+                        </div>
+                      )}
+                      {hasQueen && (
+                        <span className={cn("text-2xl drop-shadow-md transition-all select-none", isSolution ? "text-emerald-400 scale-110" : "text-amber-400")}>♛</span>
+                      )}
+                      {isCurrent && !hasQueen && !isBacktracking && (
+                        <span className="text-2xl opacity-30 text-emerald-400 animate-pulse select-none">♛</span>
+                      )}
+                      {isCurrent && isBacktracking && !hasQueen && (
+                        <span className="text-base text-red-400/70 font-bold">✕</span>
+                      )}
+                      {isConflict && !isCurrent && (
+                        <span className="text-xs text-red-400/60">⚡</span>
+                      )}
+                    </div>
+                  )
+                })
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-wrap justify-center gap-x-5 gap-y-1.5 mt-1">
+          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm ring-2 ring-emerald-400/50 bg-emerald-400/15" /><span className="text-[9px] uppercase font-bold text-muted-foreground">Trying</span></div>
+          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-slate-400/20 flex items-center justify-center"><div className="w-1 h-1 rounded-full bg-red-400/50" /></div><span className="text-[9px] uppercase font-bold text-muted-foreground">Attacked</span></div>
+          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-red-500/25" /><span className="text-[9px] uppercase font-bold text-muted-foreground">Conflict</span></div>
+          <div className="flex items-center gap-1.5"><span className="text-sm text-amber-400">♛</span><span className="text-[9px] uppercase font-bold text-muted-foreground">Queen</span></div>
         </div>
       </div>
     )
@@ -282,51 +336,81 @@ export function BacktrackingVisualizer({
   const renderTree = () => {
     if (!currentStep || currentStep.type !== 'sum-of-subsets') return null
     const data = currentStep.data as any
-    const nodes = data.treeNodes
+    const progressPct = data.target > 0 ? Math.min(100, Math.round((data.currentSum / data.target) * 100)) : 0
+    const isOver = data.currentSum > data.target
+    const includedSet = new Set(data.includedItems as number[])
     
-    // Very simplified tree rendering - list view for simplicity in generic SVG
-    // A proper tree layout requires complex math, so we'll do a styled list of the current path and valid solutions
     return (
-      <div className="flex-1 p-6 flex flex-col gap-6">
-        <div className="flex items-center justify-between p-4 rounded-xl border border-border/20 bg-background/30">
-          <div className="text-center">
-            <p className="text-xs font-bold uppercase text-muted-foreground">Target Sum</p>
-            <p className="text-2xl font-bold text-primary mt-1">{data.target}</p>
+      <div className="flex-1 p-5 flex flex-col gap-5">
+        {/* Progress bar: current sum vs target */}
+        <div className="rounded-xl border border-border/20 bg-background/30 p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold uppercase text-muted-foreground">Progress toward Target</span>
+            <span className={cn("text-sm font-black", isOver ? "text-destructive" : data.currentSum === data.target ? "text-emerald-500" : "text-primary")}>{data.currentSum} / {data.target}</span>
           </div>
-          <div className="text-center">
-            <p className="text-xs font-bold uppercase text-muted-foreground">Current Sum</p>
-            <p className="text-2xl font-bold text-emerald-500 mt-1">{data.currentSum}</p>
+          <div className="w-full h-3 bg-muted/30 rounded-full overflow-hidden">
+            <div className={cn("h-full rounded-full transition-all duration-300", isOver ? "bg-destructive" : data.currentSum === data.target ? "bg-emerald-500" : "bg-primary")} style={{ width: `${Math.min(100, progressPct)}%` }} />
+          </div>
+          {data.remainingSum !== undefined && (
+            <p className="text-[10px] text-muted-foreground mt-1.5">Remaining available: {data.remainingSum}</p>
+          )}
+        </div>
+
+        {/* Items pool */}
+        <div>
+          <h3 className="text-xs font-bold uppercase text-muted-foreground mb-2">Items Pool</h3>
+          <div className="flex gap-2 flex-wrap bg-background/20 p-4 rounded-xl border border-border/20">
+            {(data.items as number[]).map((item: number, i: number) => {
+              const isIncluded = includedSet.has(item)
+              return (
+                <div key={i} className={cn(
+                  "px-3 py-1.5 rounded-lg text-sm font-bold border transition-all duration-200",
+                  isIncluded ? "bg-primary/15 border-primary/40 text-primary scale-105 shadow-sm" : "bg-muted/10 border-border/20 text-muted-foreground/60"
+                )}>
+                  {item}
+                </div>
+              )
+            })}
           </div>
         </div>
 
+        {/* Current included subset */}
         <div>
-          <h3 className="text-sm font-bold mb-2">Current Exploring Path</h3>
-          <div className="flex gap-2 flex-wrap bg-background/20 p-4 rounded-xl border border-border/20 min-h-16 items-center">
+          <h3 className="text-xs font-bold uppercase text-muted-foreground mb-2">Current Subset</h3>
+          <div className="flex gap-2 flex-wrap bg-background/20 p-4 rounded-xl border border-border/20 min-h-14 items-center">
             {data.includedItems.length === 0 ? (
-              <span className="text-muted-foreground text-sm">[]</span>
+              <span className="text-muted-foreground text-sm italic">Empty — exploring…</span>
             ) : (
-              data.includedItems.map((item: number, i: number) => (
-                <Badge key={i} variant="outline" className="text-sm bg-primary/10 border-primary/20 text-primary px-3 py-1">
-                  +{item}
-                </Badge>
-              ))
+              <>
+                {data.includedItems.map((item: number, i: number) => (
+                  <Badge key={i} variant="outline" className="text-sm bg-primary/10 border-primary/30 text-primary px-3 py-1 font-bold">+{item}</Badge>
+                ))}
+                <span className="text-xs text-muted-foreground ml-2">= {data.currentSum}</span>
+              </>
             )}
           </div>
         </div>
 
-        <div>
-          <h3 className="text-sm font-bold mb-2">Found Valid Subsets ({data.validSubsets.length})</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            {data.validSubsets.map((subset: number[], i: number) => (
-              <div key={i} className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 px-3 py-2 rounded-lg text-sm font-medium">
-                [{subset.join(', ')}] = {data.target}
-              </div>
-            ))}
+        {/* Found valid subsets */}
+        {data.validSubsets.length > 0 && (
+          <div>
+            <h3 className="text-xs font-bold uppercase text-muted-foreground mb-2">✓ Valid Subsets ({data.validSubsets.length})</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {data.validSubsets.map((subset: number[], i: number) => (
+                <div key={i} className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 px-3 py-2 rounded-lg text-sm font-medium flex justify-between items-center">
+                  <span className="font-mono">[{subset.join(', ')}]</span>
+                  <span className="font-black">= {data.target}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     )
   }
+
+  const GRAPH_COLORS = ['hsl(0,70%,55%)', 'hsl(220,70%,55%)', 'hsl(140,70%,45%)', 'hsl(50,80%,50%)', 'hsl(280,70%,55%)', 'hsl(25,80%,55%)', 'hsl(190,70%,50%)', 'hsl(330,70%,55%)']
+  const COLOR_NAMES = ['Red', 'Blue', 'Green', 'Yellow', 'Purple', 'Orange', 'Cyan', 'Pink']
 
   const renderGraph = () => {
     if (!currentStep) return null
@@ -334,99 +418,117 @@ export function BacktrackingVisualizer({
     const data = currentStep.data as any
     const { nodes = [], edges = [] } = data
     
-    // Graph Coloring specific
     const colors = data.colors || []
-    const palette = ['fill-red-500', 'fill-blue-500', 'fill-green-500', 'fill-yellow-500', 'fill-purple-500']
-    
-    // TSP specific
     const currentPath = data.currentPath || []
     const bestPath = data.bestPath || []
+    const conflictEdgeSet = new Set((data.conflictEdges || []).map((e: any) => `${Math.min(e.u,e.v)}-${Math.max(e.u,e.v)}`))
 
-    const highlightEdge = (u: number, v: number) => {
-      if (currentStep.type === 'tsp') {
-        // Check if edge is in current path
-        let inCurrentPath = false
-        for (let i = 0; i < currentPath.length - 1; i++) {
-          if ((currentPath[i] === u && currentPath[i+1] === v) || (currentPath[i] === v && currentPath[i+1] === u)) {
-            inCurrentPath = true
-            break
-          }
-        }
-        if (currentPath.length === nodes.length && ((currentPath[currentPath.length-1] === u && currentPath[0] === v) || (currentPath[currentPath.length-1] === v && currentPath[0] === u))) {
-          inCurrentPath = true // Closing the loop
-        }
-        
-        if (inCurrentPath) return 'stroke-primary stroke-[3px]'
-        return 'stroke-border/30 stroke-1'
+    const isEdgeInPath = (u: number, v: number, path: number[]) => {
+      for (let i = 0; i < path.length - 1; i++) {
+        if ((path[i] === u && path[i+1] === v) || (path[i] === v && path[i+1] === u)) return true
       }
-      return 'stroke-border/50 stroke-2'
+      return false
     }
 
     return (
-      <div className="flex-1 flex flex-col p-4 gap-4">
-        {currentStep.type === 'tsp' && (
-          <div className="flex items-center justify-between px-6 py-2 bg-background/20 rounded-xl border border-border/10">
-             <div className="text-xs"><span className="text-muted-foreground">Current Cost:</span> <span className="font-bold">{data.currentCost}</span></div>
-             <div className="text-xs"><span className="text-muted-foreground">Best Cost:</span> <span className="font-bold text-emerald-500">{data.bestCost === Infinity ? 'None' : data.bestCost}</span></div>
-          </div>
-        )}
-        <div className="flex-1 min-h-[350px] flex items-center justify-center">
+      <div className="flex-1 flex flex-col p-4 gap-3">
+        {/* Stats bar */}
+        <div className="flex items-center justify-between px-4 py-2 bg-background/20 rounded-xl border border-border/10 flex-wrap gap-2">
+          {currentStep.type === 'tsp' && (
+            <>
+              <div className="text-xs"><span className="text-muted-foreground">Path: </span><span className="font-bold font-mono">[{currentPath.join('→')}]</span></div>
+              <div className="text-xs"><span className="text-muted-foreground">Cost: </span><span className="font-bold">{data.currentCost}</span></div>
+              <div className="text-xs"><span className="text-muted-foreground">Best: </span><span className="font-bold text-emerald-500">{data.bestCost === Infinity ? '∞' : data.bestCost}</span></div>
+              {data.prunedBranches > 0 && (
+                <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-400">Pruned: {data.prunedBranches}</Badge>
+              )}
+            </>
+          )}
+          {currentStep.type === 'graph-coloring' && (
+            <>
+              <div className="text-xs"><span className="text-muted-foreground">Coloring node: </span><span className="font-bold">{data.currentNode}</span></div>
+              <div className="text-xs"><span className="text-muted-foreground">Colored: </span><span className="font-bold">{colors.filter((c: number) => c !== -1).length}/{nodes.length}</span></div>
+            </>
+          )}
+        </div>
+
+        <div className="flex-1 min-h-[320px] flex items-center justify-center">
           <svg className="w-full h-full max-w-[500px]" viewBox="0 0 400 300">
-            {edges.map((edge: Edge, i: number) => {
-              const p1 = nodePositions[edge.u]
-              const p2 = nodePositions[edge.v]
+            {/* Best path overlay for TSP (dashed green) */}
+            {currentStep.type === 'tsp' && bestPath.length > 1 && edges.map((edge: Edge, i: number) => {
+              if (!isEdgeInPath(edge.u, edge.v, bestPath)) return null
+              const p1 = nodePositions[edge.u]; const p2 = nodePositions[edge.v]
               if (!p1 || !p2) return null
-              const midX = (p1.x + p2.x) / 2
-              const midY = (p1.y + p2.y) / 2
+              return <line key={`best-${i}`} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="rgb(34,197,94)" strokeWidth="2" strokeDasharray="6,4" opacity="0.5" />
+            })}
+            {/* Regular edges */}
+            {edges.map((edge: Edge, i: number) => {
+              const p1 = nodePositions[edge.u]; const p2 = nodePositions[edge.v]
+              if (!p1 || !p2) return null
+              const edgeKey = `${Math.min(edge.u,edge.v)}-${Math.max(edge.u,edge.v)}`
+              const isConflict = conflictEdgeSet.has(edgeKey)
+              const inCurrentPath = currentStep.type === 'tsp' && isEdgeInPath(edge.u, edge.v, currentPath)
+              const midX = (p1.x + p2.x) / 2; const midY = (p1.y + p2.y) / 2
               return (
                 <g key={`e-${i}`}>
-                  <line 
-                    x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} 
-                    className={cn("transition-all duration-300", highlightEdge(edge.u, edge.v))} 
+                  <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y}
+                    className={cn(
+                      "transition-all duration-300",
+                      isConflict ? "stroke-destructive" : inCurrentPath ? "stroke-primary" : "stroke-border"
+                    )}
+                    strokeWidth={isConflict ? 3 : inCurrentPath ? 3 : 2}
                   />
+                  {isConflict && <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} className="stroke-destructive opacity-20" strokeWidth="6" />}
                   {currentStep.type === 'tsp' && (
                     <>
-                      <rect x={midX - 8} y={midY - 8} width="16" height="16" rx="4" className="fill-background/80" />
-                      <text x={midX} y={midY} className="fill-muted-foreground text-[10px] font-medium" textAnchor="middle" dominantBaseline="central">
-                        {edge.weight}
-                      </text>
+                      <rect x={midX - 10} y={midY - 8} width="20" height="16" rx="4" fill="hsl(var(--background)/0.85)" />
+                      <text x={midX} y={midY} fill="hsl(var(--muted-foreground))" fontSize="10" fontWeight="500" textAnchor="middle" dominantBaseline="central">{edge.weight}</text>
                     </>
                   )}
                 </g>
               )
             })}
+            {/* Nodes */}
             {nodes.map((node: number) => {
               const p = nodePositions[node]
               if (!p) return null
-              
-              let fillClass = "fill-background"
-              if (currentStep.type === 'graph-coloring') {
-                if (colors[node] !== -1) {
-                  fillClass = palette[colors[node] % palette.length]
-                }
-              }
-              
-              const isActive = (currentStep.type === 'graph-coloring' && data.currentNode === node) || 
+              const colorIdx = colors[node]
+              const hasFill = currentStep.type === 'graph-coloring' && colorIdx !== -1
+              const fillColor = hasFill ? GRAPH_COLORS[colorIdx % GRAPH_COLORS.length] : 'hsl(var(--background))'
+              const isActive = (currentStep.type === 'graph-coloring' && data.currentNode === node) ||
                                (currentStep.type === 'tsp' && currentPath[currentPath.length - 1] === node)
-
+              const isVisited = currentStep.type === 'tsp' && currentPath.includes(node)
               return (
-                <g key={`n-${node}`} className="transition-all duration-300">
-                  <circle 
-                    cx={p.x} cy={p.y} r="16" 
-                    className={cn(
-                      "transition-all duration-300 stroke-2",
-                      fillClass,
-                      isActive ? "stroke-primary shadow-lg" : "stroke-border"
-                    )} 
+                <g key={`n-${node}`}>
+                  {isActive && <circle cx={p.x} cy={p.y} r="22" fill="none" stroke="hsl(var(--primary))" strokeWidth="2" opacity="0.4"><animate attributeName="r" values="20;24;20" dur="1.5s" repeatCount="indefinite" /></circle>}
+                  <circle cx={p.x} cy={p.y} r="18" fill={fillColor}
+                    stroke={isActive ? 'hsl(var(--primary))' : isVisited ? 'rgb(34,197,94)' : 'hsl(var(--border))'}
+                    strokeWidth={isActive ? 3 : 2} className="transition-all duration-300"
                   />
-                  <text x={p.x} y={p.y} className={cn("text-xs font-bold", fillClass !== 'fill-background' ? "fill-white" : "fill-foreground")} textAnchor="middle" dominantBaseline="central">
-                    {node}
-                  </text>
+                  <text x={p.x} y={p.y} fill={hasFill ? 'white' : 'hsl(var(--foreground))'} fontSize="13" fontWeight="700" textAnchor="middle" dominantBaseline="central">{node}</text>
                 </g>
               )
             })}
           </svg>
         </div>
+
+        {/* Color legend for graph coloring */}
+        {currentStep.type === 'graph-coloring' && (
+          <div className="flex flex-wrap justify-center gap-3 px-4">
+            {Array.from({ length: data.maxColors }, (_, i) => (
+              <div key={i} className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: GRAPH_COLORS[i] }} />
+                <span className="text-[9px] uppercase font-bold text-muted-foreground">{COLOR_NAMES[i] || `C${i}`}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {currentStep.type === 'tsp' && (
+          <div className="flex flex-wrap justify-center gap-4 px-4">
+            <div className="flex items-center gap-1.5"><div className="w-5 h-0.5 bg-primary rounded" /><span className="text-[9px] uppercase font-bold text-muted-foreground">Current Path</span></div>
+            <div className="flex items-center gap-1.5"><div className="w-5 h-0.5 rounded" style={{ background: 'rgb(34,197,94)', opacity: 0.6 }} /><span className="text-[9px] uppercase font-bold text-muted-foreground">Best Tour</span></div>
+          </div>
+        )}
       </div>
     )
   }
@@ -542,6 +644,7 @@ export function BacktrackingVisualizer({
                       )}
                       <GraphDatasetGenerator 
                         disabled={isRunning}
+                        mode={algorithm as 'tsp' | 'graph-coloring'}
                         onDatasetReady={handleDatasetReady}
                       />
                     </>
@@ -608,18 +711,16 @@ export function BacktrackingVisualizer({
             </div>
             <div className="p-4 space-y-3">
               <p className="text-xs text-muted-foreground leading-relaxed">{algorithmInfo.description}</p>
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                <div className="rounded-md bg-muted/20 p-2 text-center">
-                  <p className="text-[9px] font-bold uppercase text-muted-foreground">Time</p>
-                  <p className="text-xs font-bold text-primary">{algorithmInfo.worstCase}</p>
-                </div>
-                <div className="rounded-md bg-muted/20 p-2 text-center">
-                  <p className="text-[9px] font-bold uppercase text-muted-foreground">Space</p>
-                  <p className="text-xs font-bold text-primary">{algorithmInfo.spaceComplexity}</p>
-                </div>
-              </div>
             </div>
           </Card>
+          
+          {/* Add Pseudocode Panel here */}
+          {algorithm && (
+            <PseudocodePanel 
+              algorithm={algorithm} 
+              activeLine={currentStep?.activeLine} 
+            />
+          )}
         </aside>
 
         <main className="flex flex-col gap-4">
@@ -675,11 +776,61 @@ export function BacktrackingVisualizer({
                       <div className="bg-emerald-500/5 p-4 rounded-lg border border-emerald-500/20 shadow-inner">
                         <p className="text-[10px] text-emerald-600 font-black uppercase mb-2 tracking-widest text-center">Valid Arrangements</p>
                         <p className="text-4xl font-black text-emerald-500 text-center drop-shadow-sm">
-                          {steps.filter(s => s.stepType === 'solution').length}
+                          {nQueensSolutions.length}
                         </p>
-                        <p className="text-[11px] text-muted-foreground text-center italic mt-2">
-                          Successfully identified all non-conflicting queen positions for {nQueensSize}x{nQueensSize} board.
+                        <p className="text-[11px] text-muted-foreground text-center italic mt-2 mb-4">
+                          Successfully identified all non-conflicting queen positions for {nQueensSize}×{nQueensSize} board.
                         </p>
+                        {nQueensSolutions.length > 0 && (
+                          <div className="space-y-3">
+                            <p className="text-[10px] text-emerald-600 font-black uppercase tracking-widest text-center border-t border-emerald-500/20 pt-3">All Solutions</p>
+                            <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${nQueensSolutions.length <= 2 ? nQueensSolutions.length : nQueensSize <= 5 ? 2 : 3}, 1fr)` }}>
+                              {nQueensSolutions.map((solution, sIdx) => {
+                                const queenSet = new Set(solution.map(q => `${q.row}-${q.col}`))
+                                return (
+                                  <div key={sIdx} className="flex flex-col items-center gap-2">
+                                    <span className="text-[10px] font-bold text-emerald-500">Solution {sIdx + 1}</span>
+                                    <div
+                                      className="grid border border-emerald-500/30 rounded-sm overflow-hidden shadow-md"
+                                      style={{ gridTemplateColumns: `repeat(${nQueensSize}, 1fr)` }}
+                                    >
+                                      {Array.from({ length: nQueensSize }, (_, r) =>
+                                        Array.from({ length: nQueensSize }, (_, c) => {
+                                          const isDark = (r + c) % 2 === 1
+                                          const hasQueen = queenSet.has(`${r}-${c}`)
+                                          return (
+                                            <div
+                                              key={`${r}-${c}`}
+                                              className={cn(
+                                                'flex items-center justify-center transition-all',
+                                                nQueensSize <= 5 ? 'w-8 h-8' : nQueensSize <= 6 ? 'w-7 h-7' : 'w-6 h-6',
+                                                isDark ? 'bg-emerald-500/20' : 'bg-background',
+                                                hasQueen && 'bg-emerald-500/30'
+                                              )}
+                                            >
+                                              {hasQueen && (
+                                                <span className={cn('drop-shadow-sm', nQueensSize <= 5 ? 'text-lg' : nQueensSize <= 6 ? 'text-base' : 'text-sm')}>
+                                                  ♛
+                                                </span>
+                                              )}
+                                            </div>
+                                          )
+                                        })
+                                      )}
+                                    </div>
+                                    <div className="flex flex-wrap justify-center gap-1">
+                                      {solution.map((q, qi) => (
+                                        <span key={qi} className="text-[9px] font-mono text-muted-foreground bg-background/50 border border-border/30 rounded px-1">
+                                          ({q.row},{q.col})
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 

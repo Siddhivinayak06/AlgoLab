@@ -26,6 +26,7 @@ import {
 } from '@/lib/greedy-engine'
 import { GraphDatasetGenerator, type GraphEdge, type GraphDatasetMeta } from '@/components/graph-dataset-generator'
 import { DPDatasetGenerator, type DPDataset, type DPDatasetMeta } from '@/components/dp-dataset-generator'
+import { PseudocodePanel } from '@/components/pseudocode-panel'
 
 const HOW_TO_STEPS = [
   { title: 'Configure Inputs', detail: 'Set graph edges, items, or jobs in the Dataset tab depending on the algorithm.' },
@@ -948,6 +949,14 @@ export function GreedyVisualizer({
               </div>
             </div>
           </Card>
+
+          {/* Pseudocode Panel */}
+          {algorithm && (
+            <PseudocodePanel 
+              algorithm={algorithm} 
+              activeLine={currentStep?.activeLine} 
+            />
+          )}
         </aside>
 
         {/* Main Arena */}

@@ -68,6 +68,7 @@ export interface GreedyStep {
   type: 'dijkstra' | 'fractional-knapsack' | 'job-scheduling' | 'prims' | 'kruskals'
   stepType: 'init' | 'process' | 'update' | 'select' | 'done' | 'spt-build'
   note: string
+  activeLine: number
   comparisons: number
   operations: number
   statesExplored: number
@@ -135,11 +136,12 @@ export function runDijkstra(nodes: number, edges: Edge[], source: number): { ste
   
   const pq: { node: number; dist: number }[] = [{ node: source, dist: 0 }]
   
-  const createStep = (stepType: GreedyStep['stepType'], note: string, currentNode: number | null): GreedyStep => {
+  const createStep = (stepType: GreedyStep['stepType'], note: string, activeLine: number, currentNode: number | null): GreedyStep => {
     return {
       type: 'dijkstra',
       stepType,
       note,
+      activeLine,
       comparisons, operations, statesExplored, memoryUsage: nodes * 8 + edges.length * 12,
       data: {
         nodes: Array.from({ length: nodes }, (_, i) => i),
@@ -154,7 +156,7 @@ export function runDijkstra(nodes: number, edges: Edge[], source: number): { ste
     }
   }
 
-  steps.push(createStep('init', `Initialized distances to Infinity, source node ${source} to 0.`, null))
+  steps.push(createStep('init', `Initialized distances to Infinity, source node ${source} to 0.`, 1, null))
 
   while (pq.length > 0) {
     pq.sort((a, b) => a.dist - b.dist)
@@ -163,13 +165,15 @@ export function runDijkstra(nodes: number, edges: Edge[], source: number): { ste
     statesExplored++
     operations++
 
+    steps.push(createStep('process', `Extracting min node ${u} from priority queue.`, 3, u))
+
     if (visited[u]) {
-      steps.push(createStep('process', `Node ${u} is already visited, skipping.`, u))
+      steps.push(createStep('process', `Node ${u} is already visited, skipping.`, 4, u))
       continue
     }
 
     visited[u] = true
-    steps.push(createStep('process', `Visiting node ${u} with current shortest distance ${d}.`, u))
+    steps.push(createStep('process', `Marking node ${u} as visited.`, 5, u))
 
     for (const [v, weight] of adj[u]) {
       comparisons++
@@ -178,7 +182,7 @@ export function runDijkstra(nodes: number, edges: Edge[], source: number): { ste
         distances[v] = distances[u] + weight
         parent[v] = u
         pq.push({ node: v, dist: distances[v] })
-        steps.push(createStep('update', `Relaxed edge (${u}, ${v}). New distance for ${v} is ${distances[v]}.`, v))
+        steps.push(createStep('update', `Relaxed edge (${u}, ${v}). New distance for ${v} is ${distances[v]}.`, 8, v))
       }
     }
   }
@@ -189,11 +193,11 @@ export function runDijkstra(nodes: number, edges: Edge[], source: number): { ste
       const u = parent[v]
       const weight = adj[u].find(n => n[0] === v)?.[1] || 0
       sptEdges.push({ u, v, weight })
-      steps.push(createStep('spt-build', `Added edge (${u}, ${v}) to Shortest Path Tree.`, v))
+      steps.push(createStep('spt-build', `Added edge (${u}, ${v}) to Shortest Path Tree.`, 8, v))
     }
   }
 
-  steps.push(createStep('done', `Dijkstra's Algorithm complete. Shortest Path Tree built.`, null))
+  steps.push(createStep('done', `Dijkstra's Algorithm complete. Shortest Path Tree built.`, 8, null))
   return { steps, answer: distances }
 }
 
@@ -214,11 +218,12 @@ export function runFractionalKnapsack(items: KnapsackItem[], capacity: number): 
   let totalValue = 0
   const knapsack: { item: KnapsackItem; fraction: number }[] = []
 
-  const createStep = (stepType: GreedyStep['stepType'], note: string, currentItem: KnapsackItem | null): GreedyStep => {
+  const createStep = (stepType: GreedyStep['stepType'], note: string, activeLine: number, currentItem: KnapsackItem | null): GreedyStep => {
     return {
       type: 'fractional-knapsack',
       stepType,
       note,
+      activeLine,
       comparisons, operations, statesExplored, memoryUsage: items.length * 16,
       data: {
         items,
@@ -231,14 +236,14 @@ export function runFractionalKnapsack(items: KnapsackItem[], capacity: number): 
     }
   }
 
-  steps.push(createStep('init', `Sorted ${items.length} items by value/weight ratio. Initial capacity: ${capacity}.`, null))
+  steps.push(createStep('init', `Sorted ${items.length} items by value/weight ratio. Initial capacity: ${capacity}.`, 1, null))
 
   for (const item of sortedItems) {
     statesExplored++
     comparisons++
     
     if (currentCapacity === 0) {
-      steps.push(createStep('done', `Knapsack is full.`, null))
+      steps.push(createStep('done', `Knapsack is full.`, 7, null))
       break
     }
 
@@ -247,7 +252,7 @@ export function runFractionalKnapsack(items: KnapsackItem[], capacity: number): 
       totalValue += item.value
       knapsack.push({ item, fraction: 1 })
       operations++
-      steps.push(createStep('process', `Took entire item ${item.id} (weight: ${item.weight}, value: ${item.value}). Remaining capacity: ${currentCapacity}.`, item))
+      steps.push(createStep('process', `Took entire item ${item.id} (weight: ${item.weight}, value: ${item.value}). Remaining capacity: ${currentCapacity}.`, 4, item))
     } else {
       const fraction = currentCapacity / item.weight
       const valueAdded = item.value * fraction
@@ -255,12 +260,12 @@ export function runFractionalKnapsack(items: KnapsackItem[], capacity: number): 
       knapsack.push({ item, fraction })
       currentCapacity = 0
       operations++
-      steps.push(createStep('process', `Took ${(fraction * 100).toFixed(1)}% of item ${item.id} to fill knapsack. Added value: ${valueAdded.toFixed(2)}.`, item))
+      steps.push(createStep('process', `Took ${(fraction * 100).toFixed(1)}% of item ${item.id} to fill knapsack. Added value: ${valueAdded.toFixed(2)}.`, 6, item))
     }
   }
 
   if (currentCapacity > 0) {
-     steps.push(createStep('done', `Finished evaluating items. Knapsack not entirely full.`, null))
+     steps.push(createStep('done', `Finished evaluating items. Knapsack not entirely full.`, 7, null))
   }
 
   return { steps, answer: totalValue }
@@ -285,11 +290,12 @@ export function runJobScheduling(jobs: Job[]): { steps: GreedyStep[]; answer: nu
   const rejected: Job[] = []
   let totalProfit = 0
 
-  const createStep = (stepType: GreedyStep['stepType'], note: string, currentJob: Job | null): GreedyStep => {
+  const createStep = (stepType: GreedyStep['stepType'], note: string, activeLine: number, currentJob: Job | null): GreedyStep => {
     return {
       type: 'job-scheduling',
       stepType,
       note,
+      activeLine,
       comparisons, operations, statesExplored, memoryUsage: jobs.length * 12 + maxDeadline * 4,
       data: {
         jobs,
@@ -301,7 +307,7 @@ export function runJobScheduling(jobs: Job[]): { steps: GreedyStep[]; answer: nu
     }
   }
 
-  steps.push(createStep('init', `Sorted ${jobs.length} jobs by profit descending. Max deadline is ${maxDeadline}.`, null))
+  steps.push(createStep('init', `Sorted ${jobs.length} jobs by profit descending. Max deadline is ${maxDeadline}.`, 1, null))
 
   for (const job of sortedJobs) {
     statesExplored++
@@ -316,7 +322,7 @@ export function runJobScheduling(jobs: Job[]): { steps: GreedyStep[]; answer: nu
         totalProfit += job.profit
         scheduled = true
         operations++
-        steps.push(createStep('process', `Scheduled job ${job.id} (profit: ${job.profit}) at time slot ${j}.`, job))
+        steps.push(createStep('process', `Scheduled job ${job.id} (profit: ${job.profit}) at time slot ${j}.`, 5, job))
         break
       }
     }
@@ -324,11 +330,11 @@ export function runJobScheduling(jobs: Job[]): { steps: GreedyStep[]; answer: nu
     if (!scheduled) {
       rejected.push(job)
       operations++
-      steps.push(createStep('process', `Could not schedule job ${job.id} by deadline ${job.deadline}. Rejected.`, job))
+      steps.push(createStep('process', `Could not schedule job ${job.id} by deadline ${job.deadline}. Rejected.`, 7, job))
     }
   }
 
-  steps.push(createStep('done', `Scheduling complete. Total profit: ${totalProfit}.`, null))
+  steps.push(createStep('done', `Scheduling complete. Total profit: ${totalProfit}.`, 7, null))
   return { steps, answer: totalProfit }
 }
 
@@ -354,11 +360,12 @@ export function runPrims(nodes: number, edges: Edge[]): { steps: GreedyStep[]; a
     pq.push({ node: 0, parent: -1, weight: 0 })
   }
 
-  const createStep = (stepType: GreedyStep['stepType'], note: string, currentNode: number | null): GreedyStep => {
+  const createStep = (stepType: GreedyStep['stepType'], note: string, activeLine: number, currentNode: number | null): GreedyStep => {
     return {
       type: 'prims',
       stepType,
       note,
+      activeLine,
       comparisons, operations, statesExplored, memoryUsage: nodes * 8 + edges.length * 12,
       data: {
         nodes: Array.from({ length: nodes }, (_, i) => i),
@@ -371,7 +378,7 @@ export function runPrims(nodes: number, edges: Edge[]): { steps: GreedyStep[]; a
     }
   }
 
-  steps.push(createStep('init', `Starting Prim's algorithm from node 0.`, 0))
+  steps.push(createStep('init', `Starting Prim's algorithm from node 0.`, 1, 0))
 
   while (pq.length > 0) {
     pq.sort((a, b) => a.weight - b.weight)
@@ -386,9 +393,9 @@ export function runPrims(nodes: number, edges: Edge[]): { steps: GreedyStep[]; a
     if (parent !== -1) {
       mstEdges.push({ u: parent, v: u, weight })
       totalCost += weight
-      steps.push(createStep('update', `Added edge (${parent}, ${u}) with weight ${weight} to MST.`, u))
+      steps.push(createStep('update', `Added edge (${parent}, ${u}) with weight ${weight} to MST.`, 5, u))
     } else {
-      steps.push(createStep('process', `Added starting node ${u} to MST.`, u))
+      steps.push(createStep('process', `Added starting node ${u} to MST.`, 5, u))
     }
 
     for (const [v, w] of adj[u]) {
@@ -396,11 +403,12 @@ export function runPrims(nodes: number, edges: Edge[]): { steps: GreedyStep[]; a
       if (!inMST[v]) {
         pq.push({ node: v, parent: u, weight: w })
         operations++
+        steps.push(createStep('process', `Pushed edge (${u}, ${v}) to Priority Queue.`, 8, v))
       }
     }
   }
 
-  steps.push(createStep('done', `Prim's MST complete. Total cost: ${totalCost}.`, null))
+  steps.push(createStep('done', `Prim's MST complete. Total cost: ${totalCost}.`, 8, null))
   return { steps, answer: totalCost }
 }
 
@@ -445,11 +453,12 @@ export function runKruskals(nodes: number, edges: Edge[]): { steps: GreedyStep[]
     }
   }
 
-  const createStep = (stepType: GreedyStep['stepType'], note: string, currentEdge: Edge | null, cycleDetected: boolean): GreedyStep => {
+  const createStep = (stepType: GreedyStep['stepType'], note: string, activeLine: number, currentEdge: Edge | null, cycleDetected: boolean): GreedyStep => {
     return {
       type: 'kruskals',
       stepType,
       note,
+      activeLine,
       comparisons, operations, statesExplored, memoryUsage: nodes * 8 + edges.length * 12,
       data: {
         edges,
@@ -463,7 +472,7 @@ export function runKruskals(nodes: number, edges: Edge[]): { steps: GreedyStep[]
     }
   }
 
-  steps.push(createStep('init', `Sorted ${edges.length} edges by weight. Initialized Union-Find.`, null, false))
+  steps.push(createStep('init', `Sorted ${edges.length} edges by weight. Initialized Union-Find.`, 1, null, false))
 
   for (const edge of sortedEdges) {
     statesExplored++
@@ -475,9 +484,9 @@ export function runKruskals(nodes: number, edges: Edge[]): { steps: GreedyStep[]
       mstEdges.push(edge)
       totalCost += edge.weight
       union(edge.u, edge.v)
-      steps.push(createStep('process', `Edge (${edge.u}, ${edge.v}) with weight ${edge.weight} connects different components. Added to MST.`, edge, false))
+      steps.push(createStep('process', `Edge (${edge.u}, ${edge.v}) with weight ${edge.weight} connects different components. Added to MST.`, 5, edge, false))
     } else {
-      steps.push(createStep('process', `Edge (${edge.u}, ${edge.v}) forms a cycle. Skipped.`, edge, true))
+      steps.push(createStep('process', `Edge (${edge.u}, ${edge.v}) forms a cycle. Skipped.`, 8, edge, true))
     }
 
     if (mstEdges.length === nodes - 1) {
@@ -485,6 +494,6 @@ export function runKruskals(nodes: number, edges: Edge[]): { steps: GreedyStep[]
     }
   }
 
-  steps.push(createStep('done', `Kruskal's MST complete. Total cost: ${totalCost}.`, null, false))
+  steps.push(createStep('done', `Kruskal's MST complete. Total cost: ${totalCost}.`, 8, null, false))
   return { steps, answer: totalCost }
 }

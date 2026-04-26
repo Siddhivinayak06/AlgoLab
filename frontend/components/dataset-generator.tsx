@@ -47,6 +47,7 @@ interface DatasetGeneratorProps {
   className?: string
   hideTypeSelector?: boolean
   hidePreview?: boolean
+  hideTitle?: boolean
 }
 
 const RANDOM_MIN_SIZE = 5
@@ -135,71 +136,13 @@ function parseCustomArray(input: string): { values: number[]; error: string | nu
   return { values, error: null }
 }
 
-function createRandomDataset(size: number, min: number, max: number): number[] {
-  return Array.from({ length: size }, () =>
-    Math.floor(Math.random() * (max - min + 1)) + min
-  )
-}
-
-function createNearlySortedDataset(size: number, min: number, max: number): number[] {
-  const sorted = Array.from({ length: size }, (_, index) =>
-    min + Math.floor(((max - min) * index) / Math.max(size - 1, 1))
-  )
-
-  const swapCount = Math.max(1, Math.floor(size * 0.1))
-  for (let i = 0; i < swapCount; i += 1) {
-    const first = Math.floor(Math.random() * size)
-    const second = Math.floor(Math.random() * size)
-    ;[sorted[first], sorted[second]] = [sorted[second], sorted[first]]
-  }
-
-  return sorted
-}
-
-function createReverseSortedDataset(size: number, min: number, max: number): number[] {
-  const base = Array.from({ length: size }, (_, index) =>
-    min + Math.floor(((max - min) * index) / Math.max(size - 1, 1))
-  )
-
-  return base.reverse()
-}
-
-function createFewUniqueDataset(size: number, min: number, max: number): number[] {
-  const uniqueCount = Math.max(3, Math.floor(Math.min(size, 10) / 2))
-  const bucket = Array.from({ length: uniqueCount }, () =>
-    Math.floor(Math.random() * (max - min + 1)) + min
-  )
-
-  return Array.from({ length: size }, () => bucket[Math.floor(Math.random() * bucket.length)])
-}
-
-function createAlreadySortedDataset(size: number, min: number, max: number): number[] {
-  return Array.from({ length: size }, (_, index) =>
-    min + Math.floor(((max - min) * index) / Math.max(size - 1, 1))
-  )
-}
-
-function createDatasetByType(type: DatasetType, size: number, min: number, max: number): number[] {
-  switch (type) {
-    case 'nearly-sorted':
-      return createNearlySortedDataset(size, min, max)
-    case 'reverse-sorted':
-      return createReverseSortedDataset(size, min, max)
-    case 'few-unique':
-      return createFewUniqueDataset(size, min, max)
-    case 'already-sorted':
-      return createAlreadySortedDataset(size, min, max)
-    default:
-      return createRandomDataset(size, min, max)
-  }
-}
-
 export function DatasetGenerator({
   onDatasetReady,
   disabled = false,
   className,
   hideTypeSelector = false,
   hidePreview = false,
+  hideTitle = false,
 }: DatasetGeneratorProps) {
   const [arraySize, setArraySize] = useState(30)
   const [minValue, setMinValue] = useState(1)
@@ -209,16 +152,7 @@ export function DatasetGenerator({
   const [showCustomInput, setShowCustomInput] = useState(false)
   const [preview, setPreview] = useState<number[]>([])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [lastConfig, setLastConfig] = useState<{
-    datasetType: DatasetType
-    arraySize: number
-    minValue: number
-    maxValue: number
-  } | null>(null)
-
-  const randomRangeIsValid = useMemo(() => {
-    return Number.isFinite(minValue) && Number.isFinite(maxValue) && minValue < maxValue
-  }, [minValue, maxValue])
+  const [lastConfig, setLastConfig] = useState<DatasetGeneratorMeta | null>(null)
 
   const datasetStats = useMemo(() => {
     if (preview.length === 0) {
@@ -237,47 +171,51 @@ export function DatasetGenerator({
   }, [preview])
 
   const handleRandomGenerate = useCallback(() => {
-    if (!randomRangeIsValid) {
+    if (minValue >= maxValue) {
       setErrorMessage('Value range is invalid. Ensure minimum is less than maximum.')
       return
     }
 
-    const generated = createDatasetByType(datasetType, arraySize, minValue, maxValue)
-    setPreview(generated)
-    setShowCustomInput(false)
+    const data: number[] = []
+    for (let i = 0; i < arraySize; i++) {
+      let val = 0
+      if (datasetType === 'random') {
+        val = Math.floor(Math.random() * (maxValue - minValue + 1)) + minValue
+      } else if (datasetType === 'nearly-sorted') {
+        val = minValue + Math.floor(((maxValue - minValue) * i) / Math.max(arraySize - 1, 1))
+        if (Math.random() > 0.8) val += Math.floor(Math.random() * 10) - 5
+      } else if (datasetType === 'reverse-sorted') {
+        val = maxValue - Math.floor(((maxValue - minValue) * i) / Math.max(arraySize - 1, 1))
+      } else if (datasetType === 'few-unique') {
+        const uniqueValues = [minValue, Math.floor((minValue + maxValue) / 2), maxValue]
+        val = uniqueValues[Math.floor(Math.random() * uniqueValues.length)]
+      } else if (datasetType === 'already-sorted') {
+        val = minValue + Math.floor(((maxValue - minValue) * i) / Math.max(arraySize - 1, 1))
+      }
+      data.push(val)
+    }
+
+    setPreview(data)
     setErrorMessage(null)
-    setLastConfig({ datasetType, arraySize, minValue, maxValue })
-    onDatasetReady(generated, {
+    setLastConfig({
       source: 'random',
       arraySize,
       datasetType,
       valueRange: { min: minValue, max: maxValue },
     })
-  }, [arraySize, datasetType, maxValue, minValue, onDatasetReady, randomRangeIsValid])
+    onDatasetReady(data, {
+      source: 'random',
+      arraySize,
+      datasetType,
+      valueRange: { min: minValue, max: maxValue },
+    })
+  }, [arraySize, datasetType, minValue, maxValue, onDatasetReady])
 
   const handleRegenerate = useCallback(() => {
-    if (!lastConfig) {
-      setErrorMessage('Generate a dataset first, then you can regenerate it.')
-      return
+    if (lastConfig?.source === 'random') {
+      handleRandomGenerate()
     }
-
-    const generated = createDatasetByType(
-      lastConfig.datasetType,
-      lastConfig.arraySize,
-      lastConfig.minValue,
-      lastConfig.maxValue
-    )
-
-    setPreview(generated)
-    setShowCustomInput(false)
-    setErrorMessage(null)
-    onDatasetReady(generated, {
-      source: 'random',
-      arraySize: lastConfig.arraySize,
-      datasetType: lastConfig.datasetType,
-      valueRange: { min: lastConfig.minValue, max: lastConfig.maxValue },
-    })
-  }, [lastConfig, onDatasetReady])
+  }, [lastConfig, handleRandomGenerate])
 
   const handleCustomApply = useCallback(() => {
     const { values, error } = parseCustomArray(customInput)
@@ -290,7 +228,10 @@ export function DatasetGenerator({
     setPreview(values)
     setArraySize(values.length)
     setErrorMessage(null)
-    setLastConfig(null)
+    setLastConfig({
+      source: 'custom',
+      arraySize: values.length,
+    })
     onDatasetReady(values, {
       source: 'custom',
       arraySize: values.length,
@@ -302,7 +243,10 @@ export function DatasetGenerator({
     setArraySize(sample.data.length)
     setErrorMessage(null)
     setShowCustomInput(false)
-    setLastConfig(null)
+    setLastConfig({
+      source: 'custom',
+      arraySize: sample.data.length,
+    })
     onDatasetReady(sample.data, {
       source: 'custom',
       arraySize: sample.data.length,
@@ -313,13 +257,13 @@ export function DatasetGenerator({
 
   return (
     <Card className={cn('glass-card space-y-3 p-4', className)}>
-      <h2 className="text-base font-semibold text-foreground">Dataset Generator</h2>
+      {!hideTitle && <h2 className="text-base font-semibold text-foreground">Dataset Generator</h2>}
 
-      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="flex flex-wrap gap-2">
         <Button
           type="button"
           size="sm"
-          className="h-9 rounded-lg bg-primary px-2 text-[11px] text-primary-foreground hover:bg-primary/90 [&_svg]:size-3.5"
+          className="flex-1 min-w-[140px] h-9 rounded-lg bg-primary px-2 text-[10px] text-primary-foreground hover:bg-primary/90 [&_svg]:size-3.5"
           onClick={handleRandomGenerate}
           disabled={disabled}
         >
@@ -331,7 +275,7 @@ export function DatasetGenerator({
           type="button"
           size="sm"
           variant="outline"
-          className="h-9 rounded-lg border-border/50 bg-background/20 px-2 text-[11px] [&_svg]:size-3.5"
+          className="flex-1 min-w-[140px] h-9 rounded-lg border-border/50 bg-background/20 px-2 text-[10px] [&_svg]:size-3.5"
           onClick={handleRegenerate}
           disabled={disabled || !lastConfig}
         >
@@ -343,7 +287,7 @@ export function DatasetGenerator({
           type="button"
           size="sm"
           variant="outline"
-          className="h-9 rounded-lg border-border/50 bg-background/20 px-2 text-[11px] [&_svg]:size-3.5"
+          className="flex-1 min-w-[140px] h-9 rounded-lg border-border/50 bg-background/20 px-2 text-[10px] [&_svg]:size-3.5"
           onClick={() => setShowCustomInput((open) => !open)}
           disabled={disabled}
         >
@@ -355,7 +299,7 @@ export function DatasetGenerator({
           type="button"
           size="sm"
           variant="outline"
-          className="h-9 rounded-lg border-border/50 bg-background/20 px-2 text-[11px] [&_svg]:size-3.5"
+          className="flex-1 min-w-[140px] h-9 rounded-lg border-border/50 bg-background/20 px-2 text-[10px] [&_svg]:size-3.5"
           onClick={() => setShowSamples((open) => !open)}
           disabled={disabled}
         >

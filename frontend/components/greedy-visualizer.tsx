@@ -474,6 +474,55 @@ export function GreedyVisualizer({
             </div>
           </motion.div>
         )}
+
+        {isDone && (algorithm === 'prims' || algorithm === 'kruskals') && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-4 bg-background/98 backdrop-blur-xl border border-emerald-500/20 p-5 rounded-2xl shadow-2xl z-10"
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+              <h3 className="text-sm font-black uppercase tracking-wider text-foreground">Minimum Spanning Tree Report</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-muted/5 rounded-xl border border-border/10 p-3">
+                <p className="text-[10px] font-bold uppercase text-muted-foreground mb-2 flex items-center gap-1.5">
+                  <Layers className="size-3" /> MST Edge List
+                </p>
+                <div className="max-h-40 overflow-y-auto pr-2 custom-scrollbar">
+                  <table className="w-full text-xs text-left border-separate border-spacing-y-1">
+                    <thead>
+                      <tr className="text-muted-foreground">
+                        <th className="pb-1 font-medium pl-2">Edge</th>
+                        <th className="pb-1 font-medium">Weight</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(data.mstEdges || []).map((edge: Edge, i: number) => (
+                        <tr key={i} className="hover:bg-muted/30 transition-all rounded-md">
+                          <td className="py-2 pl-2 font-bold text-foreground">Node {edge.u} ↔ Node {edge.v}</td>
+                          <td className="py-2 font-mono font-bold text-emerald-500">{edge.weight}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="flex flex-col justify-center gap-3 bg-emerald-500/5 p-5 rounded-xl border border-emerald-500/20 shadow-inner">
+                <p className="text-[10px] text-emerald-600 font-black uppercase mb-1 tracking-widest text-center">Final MST Weight</p>
+                <p className="text-4xl font-black text-emerald-500 text-center drop-shadow-sm">
+                  {(data.mstEdges || []).reduce((sum: number, e: Edge) => sum + e.weight, 0)}
+                </p>
+                <p className="text-[11px] text-muted-foreground text-center italic mt-2 leading-tight">
+                  Successfully constructed a spanning tree with minimum total weight using {algorithmInfo.name}.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
       </div>
     )
   }
@@ -532,6 +581,60 @@ export function GreedyVisualizer({
             </tbody>
           </table>
         </div>
+
+        {isDone && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-2 bg-background/98 backdrop-blur-xl border border-emerald-500/20 p-5 rounded-2xl shadow-2xl z-10"
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+              <h3 className="text-sm font-black uppercase tracking-wider text-foreground">Knapsack Result Summary</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-muted/5 rounded-xl border border-border/10 p-3">
+                <p className="text-[10px] font-bold uppercase text-muted-foreground mb-2 flex items-center gap-1.5">
+                  <Layers className="size-3" /> Included Items
+                </p>
+                <div className="max-h-40 overflow-y-auto pr-2 custom-scrollbar">
+                  <table className="w-full text-xs text-left border-separate border-spacing-y-1">
+                    <thead>
+                      <tr className="text-muted-foreground">
+                        <th className="pb-1 font-medium pl-2">Item</th>
+                        <th className="pb-1 font-medium text-right pr-2">Portion</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.knapsack.map((entry: any, i: number) => (
+                        <tr key={i} className="hover:bg-muted/30 transition-all rounded-md">
+                          <td className="py-2 pl-2 font-bold text-foreground">Item #{entry.item.id}</td>
+                          <td className="py-2 text-right pr-2">
+                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
+                              {(entry.fraction * 100).toFixed(0)}%
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <div className="bg-emerald-500/5 p-4 rounded-xl border border-emerald-500/20 flex flex-col justify-center items-center">
+                  <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Total Maximized Value</span>
+                  <span className="text-3xl font-black text-emerald-500 mt-1">{data.totalValue.toFixed(2)}</span>
+                </div>
+                <div className="bg-muted/20 p-3 rounded-xl border border-border/10 flex justify-between items-center px-4">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">Remaining Capacity</span>
+                  <span className="text-sm font-bold font-mono">{data.remainingCapacity.toFixed(1)} units</span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
       </div>
     )
   }
@@ -608,6 +711,61 @@ export function GreedyVisualizer({
             })}
           </div>
         </div>
+
+        {isDone && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-2 bg-background/98 backdrop-blur-xl border border-primary/20 p-5 rounded-2xl shadow-2xl z-10"
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+              <h3 className="text-sm font-black uppercase tracking-wider text-foreground">Job Scheduling Report</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-muted/5 rounded-xl border border-border/10 p-3">
+                <p className="text-[10px] font-bold uppercase text-muted-foreground mb-2 flex items-center gap-1.5">
+                  <Layers className="size-3" /> Scheduled Sequence
+                </p>
+                <div className="max-h-40 overflow-y-auto pr-2 custom-scrollbar px-1">
+                  <div className="flex flex-col gap-1.5">
+                    {data.timeline.slice(1).map((job: Job | null, i: number) => (
+                      job && (
+                        <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-background border border-border/50">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold text-muted-foreground">T={i+1}</span>
+                            <span className="text-xs font-black">Job #{job.id}</span>
+                          </div>
+                          <span className="text-xs font-bold text-primary">+${job.profit}</span>
+                        </div>
+                      )
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <div className="bg-primary/5 p-4 rounded-xl border border-primary/20 flex flex-col justify-center items-center h-full">
+                  <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Total Profit Earned</span>
+                  <span className="text-4xl font-black text-primary mt-2">
+                    ${data.accepted.reduce((sum: number, j: Job) => sum + j.profit, 0)}
+                  </span>
+                  <div className="flex items-center gap-4 mt-4 pt-4 border-t border-primary/10 w-full justify-center">
+                    <div className="flex flex-col items-center">
+                      <span className="text-[9px] font-bold text-muted-foreground uppercase">Accepted</span>
+                      <span className="text-xs font-bold text-emerald-500">{data.accepted.length}</span>
+                    </div>
+                    <div className="flex flex-col items-center border-l border-border/20 pl-4">
+                      <span className="text-[9px] font-bold text-muted-foreground uppercase">Rejected</span>
+                      <span className="text-xs font-bold text-destructive">{data.rejected.length}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
       </div>
     )
   }

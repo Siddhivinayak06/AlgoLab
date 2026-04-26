@@ -424,6 +424,106 @@ export function DPVisualizer({
             <div className="flex-1 min-h-[420px] p-4 flex flex-col">
               <DPTableGrid step={currentStep} algorithm={algorithm} />
             </div>
+
+            {isDone && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-4 mx-6 mb-6 bg-background/98 backdrop-blur-xl border border-primary/20 p-5 rounded-2xl shadow-2xl z-10"
+              >
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <h3 className="text-sm font-black uppercase tracking-wider text-foreground">Optimization Report</h3>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-muted/5 rounded-xl border border-border/10 p-4">
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground mb-3 flex items-center gap-1.5">
+                      <Layers className="size-3" /> {algorithm === 'lcs' ? 'Reconstructed Subsequence' : 'Optimal Selection'}
+                    </p>
+                    
+                    {algorithm === 'lcs' ? (
+                      <div className="bg-emerald-500/5 p-4 rounded-lg border border-emerald-500/20 shadow-inner">
+                        <p className="text-[10px] text-emerald-600 font-black uppercase mb-2 tracking-widest">Final Sequence</p>
+                        <p className="text-2xl font-mono tracking-widest text-foreground font-black break-all">
+                          {(() => {
+                            if (!currentStep?.backtrackPath) return ''
+                            let lcs = ''
+                            currentStep.backtrackPath.forEach(([r, c]) => {
+                              if (r > 0 && c > 0 && currentStep.rowHeaders[r] === currentStep.colHeaders[c]) {
+                                lcs += currentStep.rowHeaders[r]
+                              }
+                            })
+                            return lcs || 'No Common Subsequence'
+                          })()}
+                        </p>
+                        <div className="mt-3 flex items-center justify-between border-t border-emerald-500/10 pt-2">
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase">Sequence Length</span>
+                          <span className="text-lg font-black text-emerald-500">{currentStep?.table[currentStep.table.length - 1][currentStep.table[0].length - 1]}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-primary/5 p-4 rounded-lg border border-primary/20 shadow-inner">
+                        <p className="text-[10px] text-primary font-black uppercase mb-3 tracking-widest">Selected Items</p>
+                        <div className="flex flex-wrap gap-2">
+                          {(() => {
+                            if (!currentStep?.backtrackPath) return null
+                            const path = currentStep.backtrackPath
+                            const items = []
+                            const weights = dpWeights.split(',').map(Number)
+                            const values = dpValues.split(',').map(Number)
+                            
+                            for (let k = 0; k < path.length - 1; k++) {
+                              const [r, c] = path[k]
+                              const [nr, nc] = path[k+1]
+                              if (nc > c) { // Item was included
+                                items.push({ id: nr, weight: weights[nr-1], value: values[nr-1] })
+                              }
+                            }
+                            
+                            return items.length > 0 ? items.map((item: any, idx: number) => (
+                              <div key={idx} className="bg-background border border-border/50 rounded-md px-2 py-1 flex flex-col items-center">
+                                <span className="text-[9px] font-black text-muted-foreground uppercase">Item {item.id}</span>
+                                <span className="text-xs font-bold text-primary">${item.value}</span>
+                              </div>
+                            )) : <p className="text-xs text-muted-foreground italic">No items fit in the knapsack.</p>
+                          })()}
+                        </div>
+                        <div className="mt-4 flex items-center justify-between border-t border-primary/10 pt-3">
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase">Total Market Value</span>
+                          <span className="text-xl font-black text-primary">${currentStep?.table[currentStep.table.length - 1][currentStep.table[0].length - 1]}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-3">
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1.5">
+                      <Settings2 className="size-3" /> Resource Efficiency
+                    </p>
+                    <div className="grid grid-cols-2 gap-3 h-full">
+                      <div className="bg-primary/5 p-3 rounded-xl border border-primary/10 flex flex-col justify-center">
+                        <span className="text-[9px] font-bold text-muted-foreground uppercase">States Computed</span>
+                        <span className="text-xl font-black text-primary">{stats.statesComputed}</span>
+                      </div>
+                      <div className="bg-orange-500/5 p-3 rounded-xl border border-orange-500/10 flex flex-col justify-center">
+                        <span className="text-[9px] font-bold text-muted-foreground uppercase">Memory Complexity</span>
+                        <span className="text-xl font-black text-orange-400">{stats.tableSize}</span>
+                      </div>
+                      <div className="bg-purple-500/5 p-3 rounded-xl border border-purple-500/10 flex flex-col justify-center col-span-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] font-bold text-muted-foreground uppercase">Algorithm Strategy</span>
+                          <Badge variant="outline" className="text-[10px] border-purple-500/20 text-purple-400">{algorithmInfo.worstCase}</Badge>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-2 italic leading-tight">
+                          Optimized using dynamic programming to avoid redundant subproblem calculations.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
           </Card>
         </main>
       </div>

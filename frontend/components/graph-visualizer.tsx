@@ -337,7 +337,7 @@ export function GraphVisualizer({
           })}
         </svg>
         </div>
-        {isDone && currentStep.type === 'bellman-ford' && (
+        {isDone && (
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -348,119 +348,189 @@ export function GraphVisualizer({
               <h3 className="text-sm font-black uppercase tracking-wider text-foreground">Analysis Report</h3>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-muted/5 rounded-xl border border-border/10 p-3">
-                <p className="text-[10px] font-bold uppercase text-muted-foreground mb-2 flex items-center gap-1.5">
-                  <Layers className="size-3" /> Final Distances & Predecessors
-                </p>
-                <div className="max-h-40 overflow-y-auto pr-2 custom-scrollbar">
-                  <table className="w-full text-xs text-left border-separate border-spacing-y-1">
+            {algorithm === 'bellman-ford' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-muted/5 rounded-xl border border-border/10 p-3">
+                  <p className="text-[10px] font-bold uppercase text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <Layers className="size-3" /> Final Distances & Predecessors
+                  </p>
+                  <div className="max-h-40 overflow-y-auto pr-2 custom-scrollbar">
+                    <table className="w-full text-xs text-left border-separate border-spacing-y-1">
+                      <thead>
+                        <tr className="text-muted-foreground">
+                          <th className="pb-1 font-medium pl-2">Node</th>
+                          <th className="pb-1 font-medium">Distance</th>
+                          <th className="pb-1 font-medium pr-2">Parent</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.nodes.map((node: number) => (
+                          <tr key={node} 
+                            className={cn(
+                              "group transition-all rounded-md", 
+                              selectedPathNode === node ? "bg-blue-500/20 shadow-sm" : "hover:bg-muted/30"
+                            )}
+                            onClick={() => setSelectedPathNode(node)}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <td className="py-2 pl-2 font-bold">Node {node}</td>
+                            <td className="py-2 font-mono font-bold text-primary">
+                              {data.distances[node] === Infinity ? '∞' : data.distances[node]}
+                            </td>
+                            <td className="py-2 text-muted-foreground pr-2">
+                              {data.parent?.[node] === -1 || data.parent?.[node] === undefined ? 
+                                <span className="opacity-30">—</span> : 
+                                <span className="bg-muted px-1.5 py-0.5 rounded text-[10px] font-bold text-foreground">{data.parent[node]}</span>
+                              }
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <p className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1.5">
+                    <Info className="size-3" /> Result Summary
+                  </p>
+                  {isNegativeCycle ? (
+                    <div className="h-full flex flex-col items-center justify-center bg-destructive/10 p-6 rounded-xl border border-destructive/20 shadow-inner">
+                      <div className="size-12 rounded-full bg-destructive/20 flex items-center justify-center mb-3">
+                        <RotateCcw className="size-6 text-destructive animate-spin-slow" />
+                      </div>
+                      <p className="text-sm text-destructive font-black uppercase tracking-widest mb-1">Negative Cycle Detected!</p>
+                      <p className="text-[10px] text-muted-foreground text-center">Shortest paths are undefined as a cycle reduces distance infinitely.</p>
+                    </div>
+                  ) : selectedPathNode !== null ? (
+                    data.distances[selectedPathNode] === Infinity ? (
+                      <div className="h-full flex items-center justify-center bg-destructive/5 rounded-xl border border-destructive/10 p-4">
+                        <p className="text-sm text-destructive font-bold">Unreachable Node {selectedPathNode}</p>
+                      </div>
+                    ) : (
+                      <div className="h-full flex flex-col justify-center bg-blue-500/5 p-4 rounded-xl border border-blue-500/20 shadow-inner">
+                        <p className="text-[10px] text-blue-500 font-black uppercase mb-3 tracking-widest">Optimal Path to {selectedPathNode}</p>
+                        <div className="flex items-center flex-wrap gap-2 mb-4">
+                          {(() => {
+                            const path = []
+                            let curr = selectedPathNode
+                            const parentArr = data.parent || []
+                            while (curr !== -1 && curr !== undefined) {
+                              path.unshift(curr)
+                              curr = parentArr[curr]
+                            }
+                            return path.map((n, i) => (
+                              <React.Fragment key={i}>
+                                <motion.span 
+                                  initial={{ scale: 0.8, opacity: 0 }}
+                                  animate={{ scale: 1, opacity: 1 }}
+                                  transition={{ delay: i * 0.1 }}
+                                  className={cn(
+                                    "size-8 rounded-lg flex items-center justify-center text-sm font-black shadow-sm border",
+                                    n === selectedPathNode ? "bg-blue-500 text-white border-blue-400" : "bg-background border-border"
+                                  )}
+                                >
+                                  {n}
+                                </motion.span>
+                                {i < path.length - 1 && (
+                                  <motion.span 
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    transition={{ delay: i * 0.1 + 0.05 }}
+                                    className="text-blue-500/50"
+                                  >
+                                    →
+                                  </motion.span>
+                                )}
+                              </React.Fragment>
+                            ))
+                          })()}
+                        </div>
+                        <div className="flex items-center justify-between border-t border-blue-500/10 pt-3 mt-auto">
+                          <span className="text-xs font-bold text-muted-foreground uppercase">Cost Efficiency</span>
+                          <span className="text-lg font-black text-primary drop-shadow-sm">{data.distances[selectedPathNode]} units</span>
+                        </div>
+                      </div>
+                    )
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center gap-3 bg-muted/10 rounded-xl border border-dashed border-border/50 p-6 group cursor-pointer hover:border-primary/50 transition-colors">
+                      <HelpCircle className="size-8 text-muted-foreground group-hover:text-primary transition-colors" />
+                      <p className="text-xs text-muted-foreground font-medium text-center italic">
+                        Select a node in the table or click on the graph <br/> to visualize the reconstructed shortest path.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {algorithm === 'floyd-warshall' && (
+              <div className="space-y-4">
+                <div className="bg-muted/5 rounded-xl border border-border/10 p-4 overflow-x-auto">
+                  <p className="text-[10px] font-bold uppercase text-muted-foreground mb-3 flex items-center gap-1.5">
+                    <Layers className="size-3" /> All-Pairs Shortest Path Matrix
+                  </p>
+                  <table className="min-w-full text-xs border-collapse">
                     <thead>
-                      <tr className="text-muted-foreground">
-                        <th className="pb-1 font-medium pl-2">Node</th>
-                        <th className="pb-1 font-medium">Distance</th>
-                        <th className="pb-1 font-medium pr-2">Parent</th>
+                      <tr>
+                        <th className="p-2 border-b border-border/20"></th>
+                        {data.matrix.map((_: any, idx: number) => (
+                          <th key={idx} className="p-2 border-b border-border/20 text-muted-foreground font-bold">Node {idx}</th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {data.nodes.map((node: number) => (
-                        <tr key={node} 
-                          className={cn(
-                            "group transition-all rounded-md", 
-                            selectedPathNode === node ? "bg-blue-500/20 shadow-sm" : "hover:bg-muted/30"
-                          )}
-                          onClick={() => setSelectedPathNode(node)}
-                          style={{ cursor: 'pointer' }}
-                        >
-                          <td className="py-2 pl-2 font-bold">Node {node}</td>
-                          <td className="py-2 font-mono font-bold text-primary">
-                            {data.distances[node] === Infinity ? '∞' : data.distances[node]}
-                          </td>
-                          <td className="py-2 text-muted-foreground pr-2">
-                            {data.parent?.[node] === -1 || data.parent?.[node] === undefined ? 
-                              <span className="opacity-30">—</span> : 
-                              <span className="bg-muted px-1.5 py-0.5 rounded text-[10px] font-bold text-foreground">{data.parent[node]}</span>
-                            }
-                          </td>
+                      {data.matrix.map((row: number[], i: number) => (
+                        <tr key={i}>
+                          <th className="p-2 border-r border-border/20 text-muted-foreground font-bold">Node {i}</th>
+                          {row.map((val: number, j: number) => (
+                            <td key={j} className={cn(
+                              "p-2 text-center font-mono font-bold",
+                              i === j ? "text-muted-foreground/30" : "text-primary"
+                            )}>
+                              {val === Infinity ? '∞' : val}
+                            </td>
+                          ))}
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+                <div className="flex items-center gap-2 rounded-lg bg-primary/5 border border-primary/20 p-3">
+                  <Info className="size-4 text-primary" />
+                  <p className="text-xs font-medium text-foreground/80">
+                    The matrix above shows the minimum cost to travel between any two nodes after considering all possible intermediate vertices.
+                  </p>
+                </div>
               </div>
+            )}
 
-              <div className="flex flex-col gap-3">
-                <p className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1.5">
-                  <Info className="size-3" /> Result Summary
-                </p>
-                {isNegativeCycle ? (
-                  <div className="h-full flex flex-col items-center justify-center bg-destructive/10 p-6 rounded-xl border border-destructive/20 shadow-inner">
-                    <div className="size-12 rounded-full bg-destructive/20 flex items-center justify-center mb-3">
-                      <RotateCcw className="size-6 text-destructive animate-spin-slow" />
-                    </div>
-                    <p className="text-sm text-destructive font-black uppercase tracking-widest mb-1">Negative Cycle Detected!</p>
-                    <p className="text-[10px] text-muted-foreground text-center">Shortest paths are undefined as a cycle reduces distance infinitely.</p>
-                  </div>
-                ) : selectedPathNode !== null ? (
-                  data.distances[selectedPathNode] === Infinity ? (
-                    <div className="h-full flex items-center justify-center bg-destructive/5 rounded-xl border border-destructive/10 p-4">
-                      <p className="text-sm text-destructive font-bold">Unreachable Node {selectedPathNode}</p>
-                    </div>
-                  ) : (
-                    <div className="h-full flex flex-col justify-center bg-blue-500/5 p-4 rounded-xl border border-blue-500/20 shadow-inner">
-                      <p className="text-[10px] text-blue-500 font-black uppercase mb-3 tracking-widest">Optimal Path to {selectedPathNode}</p>
-                      <div className="flex items-center flex-wrap gap-2 mb-4">
-                        {(() => {
-                          const path = []
-                          let curr = selectedPathNode
-                          const parentArr = data.parent || []
-                          while (curr !== -1 && curr !== undefined) {
-                            path.unshift(curr)
-                            curr = parentArr[curr]
-                          }
-                          return path.map((n, i) => (
-                            <React.Fragment key={i}>
-                              <motion.span 
-                                initial={{ scale: 0.8, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                transition={{ delay: i * 0.1 }}
-                                className={cn(
-                                  "size-8 rounded-lg flex items-center justify-center text-sm font-black shadow-sm border",
-                                  n === selectedPathNode ? "bg-blue-500 text-white border-blue-400" : "bg-background border-border"
-                                )}
-                              >
-                                {n}
-                              </motion.span>
-                              {i < path.length - 1 && (
-                                <motion.span 
-                                  initial={{ opacity: 0 }}
-                                  animate={{ opacity: 1 }}
-                                  transition={{ delay: i * 0.1 + 0.05 }}
-                                  className="text-blue-500/50"
-                                >
-                                  →
-                                </motion.span>
-                              )}
-                            </React.Fragment>
-                          ))
-                        })()}
+            {algorithm === 'multistage' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-muted/5 rounded-xl border border-border/10 p-4">
+                  <p className="text-[10px] font-bold uppercase text-muted-foreground mb-3 flex items-center gap-1.5">
+                    <Layers className="size-3" /> Stage-wise Minimum Costs
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    {data.costs.map((cost: number, node: number) => (
+                      <div key={node} className="flex items-center justify-between p-2 rounded-lg bg-background border border-border/30">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase">Node {node}</span>
+                        <span className="text-xs font-black text-primary">{cost === Infinity ? '∞' : cost}</span>
                       </div>
-                      <div className="flex items-center justify-between border-t border-blue-500/10 pt-3 mt-auto">
-                        <span className="text-xs font-bold text-muted-foreground uppercase">Cost Efficiency</span>
-                        <span className="text-lg font-black text-primary drop-shadow-sm">{data.distances[selectedPathNode]} units</span>
-                      </div>
-                    </div>
-                  )
-                ) : (
-                  <div className="h-full flex flex-col items-center justify-center gap-3 bg-muted/10 rounded-xl border border-dashed border-border/50 p-6 group cursor-pointer hover:border-primary/50 transition-colors">
-                    <HelpCircle className="size-8 text-muted-foreground group-hover:text-primary transition-colors" />
-                    <p className="text-xs text-muted-foreground font-medium text-center italic">
-                      Select a node in the table or click on the graph <br/> to visualize the reconstructed shortest path.
-                    </p>
+                    ))}
                   </div>
-                )}
+                </div>
+                <div className="flex flex-col justify-center items-center bg-emerald-500/5 p-6 rounded-xl border border-emerald-500/20 shadow-inner">
+                  <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-1">Optimal Path Cost</span>
+                  <span className="text-4xl font-black text-emerald-500">
+                    {data.costs[0] === Infinity ? 'N/A' : data.costs[0]}
+                  </span>
+                  <p className="text-[11px] text-muted-foreground mt-4 text-center italic leading-tight">
+                    Computed using Backward DP approach. Minimum cost from source to sink verified.
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
           </motion.div>
         )}
       </div>

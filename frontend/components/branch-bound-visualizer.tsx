@@ -449,6 +449,72 @@ export function BranchBoundVisualizer({
                 Configure inputs in the operations center and click Start Visualization.
               </div>
             )}
+
+            {isDone && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-4 mx-6 mb-6 bg-background/98 backdrop-blur-xl border border-primary/20 p-5 rounded-2xl shadow-2xl z-10"
+              >
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <h3 className="text-sm font-black uppercase tracking-wider text-foreground">A* Search Report</h3>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-muted/5 rounded-xl border border-border/10 p-4">
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground mb-3 flex items-center gap-1.5">
+                      <Layers className="size-3" /> Search Result
+                    </p>
+                    
+                    {currentStep?.data?.heuristicCost === 0 ? (
+                      <div className="bg-emerald-500/5 p-4 rounded-lg border border-emerald-500/20 shadow-inner text-center">
+                        <p className="text-[10px] text-emerald-600 font-black uppercase mb-1 tracking-widest">Goal State Found</p>
+                        <p className="text-4xl font-black text-emerald-500 drop-shadow-sm">
+                          {currentStep.data.gCost} Moves
+                        </p>
+                        <p className="text-[11px] text-muted-foreground italic mt-3 leading-tight">
+                          The A* algorithm found the optimal sequence of moves using Manhattan distance heuristics.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="bg-destructive/5 p-4 rounded-lg border border-destructive/20 shadow-inner text-center">
+                        <p className="text-[10px] text-destructive font-black uppercase mb-1 tracking-widest">Search Exhausted</p>
+                        <p className="text-sm font-bold text-foreground/80 italic">
+                          Could not reach the goal within the computational limits.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-3">
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1.5">
+                      <Settings2 className="size-3" /> Performance Metrics
+                    </p>
+                    <div className="grid grid-cols-2 gap-3 h-full">
+                      <div className="bg-primary/5 p-3 rounded-xl border border-primary/10 flex flex-col justify-center">
+                        <span className="text-[9px] font-bold text-muted-foreground uppercase">States Explored</span>
+                        <span className="text-xl font-black text-primary">{stats.statesExplored}</span>
+                      </div>
+                      <div className="bg-orange-500/5 p-3 rounded-xl border border-orange-500/10 flex flex-col justify-center">
+                        <span className="text-[9px] font-bold text-muted-foreground uppercase">Total Operations</span>
+                        <span className="text-xl font-black text-orange-400">{stats.operations}</span>
+                      </div>
+                      <div className="bg-purple-500/5 p-3 rounded-xl border border-purple-500/10 flex flex-col justify-center col-span-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] font-bold text-muted-foreground uppercase">Space Complexity</span>
+                          <Badge variant="outline" className="text-[10px] border-purple-500/20 text-purple-400">O(b^d)</Badge>
+                        </div>
+                        <div className="flex items-center justify-between mt-2">
+                          <span className="text-[10px] text-muted-foreground">Frontier Size:</span>
+                          <span className="text-xs font-bold text-foreground">{(currentStep?.data as any)?.frontierStatesCount || 0} states</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
           </Card>
         </main>
       </div>

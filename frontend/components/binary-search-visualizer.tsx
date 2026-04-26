@@ -213,6 +213,7 @@ export function BinarySearchVisualizer({
   const [internalGuideOpen, setInternalGuideOpen] = useState(false)
   const [barsContainerWidth, setBarsContainerWidth] = useState(0)
   const [isBothSidebarsCollapsed, setIsBothSidebarsCollapsed] = useState(false)
+  const [isDone, setIsDone] = useState(false)
 
   const algorithmInfo = SEARCH_ALGORITHM_INFO[algorithm]
   const isTreeMode = algorithm === 'bfs' || algorithm === 'dfs'
@@ -498,6 +499,7 @@ export function BinarySearchVisualizer({
     setStats({ comparisons: 0, steps: 0 })
     historyRef.current = []
     setCurrentHistoryIndex(-1)
+    setIsDone(false)
 
     setTimeout(() => {
       stopSignalRef.current = false
@@ -594,6 +596,8 @@ export function BinarySearchVisualizer({
       } else {
         setStepMessage(`${algorithmInfo.name}: ${target} not found in the dataset.`)
       }
+      setIsDone(true)
+      setIsRunning(false)
     } catch (err) {
       if (!isSortAbortedError(err)) {
         console.error('Search failed:', err)
@@ -1146,6 +1150,79 @@ export function BinarySearchVisualizer({
                 </div>
               </div>
             </div>
+
+            {isDone && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-4 mx-6 mb-6 bg-background/98 backdrop-blur-xl border border-primary/20 p-5 rounded-2xl shadow-2xl z-10"
+              >
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <h3 className="text-sm font-black uppercase tracking-wider text-foreground">Search Report</h3>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-muted/5 rounded-xl border border-border/10 p-4">
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground mb-3 flex items-center gap-1.5">
+                      <Target className="size-3" /> Target Analysis
+                    </p>
+                    {foundIndex !== null ? (
+                      <div className="bg-emerald-500/5 p-3 rounded-lg border border-emerald-500/20 shadow-inner">
+                        <p className="text-[10px] text-emerald-600 font-black uppercase mb-2 tracking-widest">Found Successfully</p>
+                        <div className="flex items-center gap-4">
+                          <div className="flex flex-col">
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase">Target</span>
+                            <span className="text-xl font-black text-foreground">{target}</span>
+                          </div>
+                          <div className="size-8 flex items-center justify-center text-emerald-500">
+                            <Search className="size-5" />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase">At Index</span>
+                            <span className="text-xl font-black text-emerald-500">#{foundIndex}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-destructive/5 p-3 rounded-lg border border-destructive/20 shadow-inner">
+                        <p className="text-[10px] text-destructive font-black uppercase mb-2 tracking-widest">Search Exhausted</p>
+                        <p className="text-sm font-bold text-foreground/80 leading-relaxed italic">
+                          The target value <span className="text-destructive">{target}</span> was not found in the current dataset.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-3">
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1.5">
+                      <Hash className="size-3" /> Search Efficiency
+                    </p>
+                    <div className="grid grid-cols-2 gap-3 h-full">
+                      <div className="bg-primary/5 p-3 rounded-xl border border-primary/10 flex flex-col justify-center">
+                        <span className="text-[9px] font-bold text-muted-foreground uppercase">Comparisons</span>
+                        <span className="text-xl font-black text-primary">{stats.comparisons}</span>
+                      </div>
+                      <div className="bg-orange-500/5 p-3 rounded-xl border border-orange-500/10 flex flex-col justify-center">
+                        <span className="text-[9px] font-bold text-muted-foreground uppercase">Total Steps</span>
+                        <span className="text-xl font-black text-orange-400">{stats.steps}</span>
+                      </div>
+                      <div className="bg-purple-500/5 p-3 rounded-xl border border-purple-500/10 flex flex-col justify-center col-span-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] font-bold text-muted-foreground uppercase">Average Complexity</span>
+                          <Badge variant="outline" className="text-[10px] border-purple-500/20 text-purple-400">{algorithmInfo.averageCase}</Badge>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-2 italic leading-tight">
+                          {foundIndex !== null 
+                            ? `Located the target in ${stats.steps} iterations using ${algorithmInfo.name} strategy.`
+                            : `Exhausted the search space after ${stats.steps} steps.`}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
           </Card>
         </main>
       </div>

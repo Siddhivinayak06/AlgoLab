@@ -15,7 +15,7 @@ export function PseudocodePanel({ algorithm, activeLine }: PseudocodePanelProps)
   const code = ALGORITHM_PSEUDOCODE[algorithm] || []
 
   return (
-    <Card className="glass-card p-0 overflow-hidden flex flex-col h-full border-primary/20 shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
+    <Card className="glass-card p-0 overflow-hidden flex flex-col border-primary/20 shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
       <div className="bg-primary/10 border-b border-primary/20 px-5 py-3 flex items-center gap-2">
         <Code2 className="size-4 text-primary" />
         <h2 className="text-sm font-bold text-foreground">Live Execution</h2>

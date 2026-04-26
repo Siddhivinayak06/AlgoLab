@@ -463,8 +463,8 @@ export function AlgorithmVisualizer({
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[400px_1fr]">
         <aside className="flex flex-col gap-6">
-          <Card className="glass-card flex flex-col p-0 overflow-hidden border-primary/20">
-            <div className="bg-primary/10 border-b border-primary/20 px-5 py-4">
+          <Card className="glass-card flex flex-col p-0 border-primary/20">
+            <div className="bg-primary/10 border-b border-primary/20 px-5 py-4 rounded-t-xl">
                <div className="flex items-center gap-2">
                   <Settings2 className="size-4 text-primary" />
                   <h2 className="text-base font-bold text-foreground">Operations Center</h2>
@@ -484,7 +484,13 @@ export function AlgorithmVisualizer({
 
               <div className="p-6">
                 <TabsContent value="dataset" className="mt-0 space-y-4">
-                  <DatasetGenerator onDatasetReady={handleDatasetReady} disabled={isRunning && !isPaused} hidePreview className="!p-0 !bg-transparent !border-0 !shadow-none" />
+                  <DatasetGenerator 
+                    onDatasetReady={handleDatasetReady} 
+                    disabled={isRunning && !isPaused} 
+                    hidePreview 
+                    hideTitle
+                    className="!p-0 !bg-transparent !border-0 !shadow-none" 
+                  />
                 </TabsContent>
 
                 <TabsContent value="algorithm" className="mt-0 space-y-7">
@@ -693,6 +699,56 @@ export function AlgorithmVisualizer({
                 </div>
               </div>
             </div>
+
+            {isSorted && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-4 mx-6 mb-6 bg-background/98 backdrop-blur-xl border border-primary/20 p-5 rounded-2xl shadow-2xl z-10"
+              >
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <h3 className="text-sm font-black uppercase tracking-wider text-foreground">Performance Report</h3>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-muted/5 rounded-xl border border-border/10 p-4">
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground mb-3 flex items-center gap-1.5">
+                      <Layers className="size-3" /> Sorted Results
+                    </p>
+                    <div className="bg-emerald-500/5 p-3 rounded-lg border border-emerald-500/20 shadow-inner">
+                      <p className="text-[10px] text-emerald-600 font-black uppercase mb-2 tracking-widest">Final Sorted Sequence</p>
+                      <p className="text-sm font-mono break-all leading-relaxed text-foreground/90">
+                        {array.join(', ')}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-3">
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1.5">
+                      <Settings2 className="size-3" /> Algorithm Efficiency
+                    </p>
+                    <div className="grid grid-cols-2 gap-3 h-full">
+                      <div className="bg-primary/5 p-3 rounded-xl border border-primary/10 flex flex-col justify-center">
+                        <span className="text-[9px] font-bold text-muted-foreground uppercase">Comparisons</span>
+                        <span className="text-xl font-black text-primary">{stats.comparisons}</span>
+                      </div>
+                      <div className="bg-orange-500/5 p-3 rounded-xl border border-orange-500/10 flex flex-col justify-center">
+                        <span className="text-[9px] font-bold text-muted-foreground uppercase">Swaps</span>
+                        <span className="text-xl font-black text-orange-400">{stats.swaps}</span>
+                      </div>
+                      <div className="bg-purple-500/5 p-3 rounded-xl border border-purple-500/10 flex flex-col justify-center col-span-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] font-bold text-muted-foreground uppercase">Complexity Class</span>
+                          <Badge variant="outline" className="text-[10px] border-purple-500/20 text-purple-400">{algorithmInfo.averageCase}</Badge>
+                        </div>
+                        <span className="text-xl font-black text-purple-400 mt-1">{stats.operations} Total Ops</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
           </Card>
         </main>
       </div>

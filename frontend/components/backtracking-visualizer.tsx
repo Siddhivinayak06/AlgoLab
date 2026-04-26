@@ -653,6 +653,126 @@ export function BacktrackingVisualizer({
                 Configure inputs in the operations center and click Start Visualization.
               </div>
             )}
+
+            {isDone && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-4 mx-6 mb-6 bg-background/98 backdrop-blur-xl border border-primary/20 p-5 rounded-2xl shadow-2xl z-10"
+              >
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <h3 className="text-sm font-black uppercase tracking-wider text-foreground">Exploration Report</h3>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-muted/5 rounded-xl border border-border/10 p-4">
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground mb-3 flex items-center gap-1.5">
+                      <Layers className="size-3" /> {algorithm === 'tsp' ? 'Best Tour Found' : 'Solution Summary'}
+                    </p>
+                    
+                    {algorithm === 'n-queens' && (
+                      <div className="bg-emerald-500/5 p-4 rounded-lg border border-emerald-500/20 shadow-inner">
+                        <p className="text-[10px] text-emerald-600 font-black uppercase mb-2 tracking-widest text-center">Valid Arrangements</p>
+                        <p className="text-4xl font-black text-emerald-500 text-center drop-shadow-sm">
+                          {steps.filter(s => s.stepType === 'solution').length}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground text-center italic mt-2">
+                          Successfully identified all non-conflicting queen positions for {nQueensSize}x{nQueensSize} board.
+                        </p>
+                      </div>
+                    )}
+
+                    {algorithm === 'sum-of-subsets' && (
+                      <div className="bg-primary/5 p-4 rounded-lg border border-primary/20 shadow-inner">
+                        <p className="text-[10px] text-primary font-black uppercase mb-2 tracking-widest">Valid Subsets Found</p>
+                        <div className="max-h-32 overflow-y-auto space-y-1.5 pr-2 custom-scrollbar">
+                          {(() => {
+                            const data = currentStep?.data as any
+                            if (!data?.validSubsets?.length) return <p className="text-xs text-muted-foreground italic">No subsets found.</p>
+                            return data.validSubsets.map((s: number[], i: number) => (
+                              <div key={i} className="bg-background border border-border/50 rounded-md px-2 py-1 text-xs font-mono flex justify-between">
+                                <span>[{s.join(', ')}]</span>
+                                <span className="font-bold text-emerald-500">Σ={subsetTarget}</span>
+                              </div>
+                            ))
+                          })()}
+                        </div>
+                      </div>
+                    )}
+
+                    {algorithm === 'graph-coloring' && (
+                      <div className="bg-purple-500/5 p-4 rounded-lg border border-purple-500/20 shadow-inner">
+                        <p className="text-[10px] text-purple-600 font-black uppercase mb-2 tracking-widest">Color Assignment</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {(() => {
+                            const data = currentStep?.data as any
+                            if (!data?.colors) return null
+                            const hasSolution = data.colors.every((c: number) => c !== -1)
+                            if (!hasSolution) return <p className="text-xs text-destructive font-bold italic">No valid coloring possible with {maxColors} colors.</p>
+                            return data.colors.map((colorIdx: number, node: number) => (
+                              <div key={node} className="bg-background border border-border/50 rounded-md px-2 py-1 flex items-center gap-2">
+                                <span className="text-[9px] font-bold text-muted-foreground">#{node}</span>
+                                <div className="size-2.5 rounded-full" style={{ backgroundColor: `hsl(${colorIdx * 137.5}, 70%, 50%)` }} />
+                              </div>
+                            ))
+                          })()}
+                        </div>
+                      </div>
+                    )}
+
+                    {algorithm === 'tsp' && (
+                      <div className="bg-blue-500/5 p-4 rounded-lg border border-blue-500/20 shadow-inner">
+                        <p className="text-[10px] text-blue-600 font-black uppercase mb-2 tracking-widest">Shortest Hamiltonian Cycle</p>
+                        <div className="flex items-center flex-wrap gap-2 mb-3">
+                          {(() => {
+                            const data = currentStep?.data as any
+                            if (!data?.bestPath?.length) return <p className="text-xs text-muted-foreground italic">No tour found.</p>
+                            return data.bestPath.map((city: number, i: number) => (
+                              <React.Fragment key={i}>
+                                <div className="size-6 rounded bg-background border border-border/50 flex items-center justify-center text-[10px] font-black">
+                                  {city}
+                                </div>
+                                {i < data.bestPath.length - 1 && <span className="text-blue-500/50">→</span>}
+                              </React.Fragment>
+                            ))
+                          })()}
+                        </div>
+                        <div className="flex items-center justify-between border-t border-blue-500/10 pt-2">
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase">Min Cost</span>
+                          <span className="text-lg font-black text-blue-500">{(currentStep?.data as any)?.bestCost} units</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-3">
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1.5">
+                      <Settings2 className="size-3" /> Search Metrics
+                    </p>
+                    <div className="grid grid-cols-2 gap-3 h-full">
+                      <div className="bg-primary/5 p-3 rounded-xl border border-primary/10 flex flex-col justify-center">
+                        <span className="text-[9px] font-bold text-muted-foreground uppercase">States Explored</span>
+                        <span className="text-xl font-black text-primary">{stats.statesExplored}</span>
+                      </div>
+                      <div className="bg-orange-500/5 p-3 rounded-xl border border-orange-500/10 flex flex-col justify-center">
+                        <span className="text-[9px] font-bold text-muted-foreground uppercase">Ops Count</span>
+                        <span className="text-xl font-black text-orange-400">{stats.operations}</span>
+                      </div>
+                      <div className="bg-purple-500/5 p-3 rounded-xl border border-purple-500/10 flex flex-col justify-center col-span-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] font-bold text-muted-foreground uppercase">Theoretical Bound</span>
+                          <Badge variant="outline" className="text-[10px] border-purple-500/20 text-purple-400">{algorithmInfo.worstCase}</Badge>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-2 italic leading-tight">
+                          The search space is explored using state-space tree traversal with exhaustive backtracking.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
           </Card>
         </main>
       </div>

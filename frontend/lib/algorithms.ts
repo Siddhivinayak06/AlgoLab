@@ -1579,3 +1579,8 @@ export function generateNearlySortedArray(
   }
   return arr
 }
+
+// Dynamic Programming algorithms
+export { lcs } from './algorithms/dynamic/lcs'
+export { knapsackBottomUp } from './algorithms/dynamic/knapsackBottomUp'
+export { knapsackTopDown } from './algorithms/dynamic/knapsackTopDown'

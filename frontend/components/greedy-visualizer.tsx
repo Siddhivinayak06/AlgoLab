@@ -39,6 +39,8 @@ interface GreedyVisualizerProps {
   guideOpen?: boolean
   onGuideOpenChange?: (open: boolean) => void
   hideGuideToggle?: boolean
+  algorithm?: GreedyAlgorithm
+  onAlgorithmChange?: (alg: GreedyAlgorithm) => void
 }
 
 type GreedyAlgorithm = 'dijkstra' | 'fractional-knapsack' | 'job-scheduling' | 'prims' | 'kruskals'
@@ -47,8 +49,11 @@ export function GreedyVisualizer({
   guideOpen,
   onGuideOpenChange,
   hideGuideToggle = false,
+  algorithm: externalAlgorithm,
+  onAlgorithmChange,
 }: GreedyVisualizerProps = {}) {
-  const [algorithm, setAlgorithm] = useState<GreedyAlgorithm>('dijkstra')
+  const [internalAlgorithm, setInternalAlgorithm] = useState<GreedyAlgorithm>('dijkstra')
+  const algorithm = externalAlgorithm ?? internalAlgorithm;
   const [isRunning, setIsRunning] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [isDone, setIsDone] = useState(false)
@@ -879,7 +884,12 @@ export function GreedyVisualizer({
                 <TabsContent value="algorithm" className="mt-0 space-y-6">
                   <div className="space-y-3">
                     <Label className="text-xs font-bold uppercase text-muted-foreground">1. Select Algorithm</Label>
-                    <Select value={algorithm} onValueChange={v => { setAlgorithm(v as GreedyAlgorithm); resetViz() }} disabled={isRunning}>
+                    <Select value={algorithm} onValueChange={v => {
+                      const alg = v as GreedyAlgorithm;
+                      if (onAlgorithmChange) onAlgorithmChange(alg);
+                      else setInternalAlgorithm(alg);
+                      resetViz();
+                    }} disabled={isRunning}>
                       <SelectTrigger className="h-9 bg-input/20 border-border/50"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="dijkstra">Dijkstra's Algorithm</SelectItem>

@@ -38,6 +38,8 @@ interface GraphVisualizerProps {
   guideOpen?: boolean
   onGuideOpenChange?: (open: boolean) => void
   hideGuideToggle?: boolean
+  algorithm?: GraphAlgorithm
+  onAlgorithmChange?: (alg: GraphAlgorithm) => void
 }
 
 type GraphAlgorithm = 'multistage' | 'bellman-ford' | 'floyd-warshall'
@@ -46,8 +48,11 @@ export function GraphVisualizer({
   guideOpen,
   onGuideOpenChange,
   hideGuideToggle = false,
+  algorithm: externalAlgorithm,
+  onAlgorithmChange,
 }: GraphVisualizerProps = {}) {
-  const [algorithm, setAlgorithm] = useState<GraphAlgorithm>('bellman-ford')
+  const [internalAlgorithm, setInternalAlgorithm] = useState<GraphAlgorithm>('bellman-ford')
+  const algorithm = externalAlgorithm ?? internalAlgorithm;
   const [isRunning, setIsRunning] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [isDone, setIsDone] = useState(false)
@@ -696,7 +701,12 @@ export function GraphVisualizer({
                 <TabsContent value="algorithm" className="mt-0 space-y-6">
                   <div className="space-y-3">
                     <Label className="text-xs font-bold uppercase text-muted-foreground">1. Select Algorithm</Label>
-                    <Select value={algorithm} onValueChange={v => { setAlgorithm(v as GraphAlgorithm); resetViz() }} disabled={isRunning}>
+                    <Select value={algorithm} onValueChange={v => {
+                      const alg = v as GraphAlgorithm;
+                      if (onAlgorithmChange) onAlgorithmChange(alg);
+                      else setInternalAlgorithm(alg);
+                      resetViz();
+                    }} disabled={isRunning}>
                       <SelectTrigger className="h-9 bg-input/20 border-border/50"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="multistage">Multistage Graph</SelectItem>

@@ -188,15 +188,20 @@ interface BinarySearchVisualizerProps {
   guideOpen?: boolean
   onGuideOpenChange?: (open: boolean) => void
   hideGuideToggle?: boolean
+  algorithm?: SearchAlgorithm
+  onAlgorithmChange?: (alg: SearchAlgorithm) => void
 }
 
 export function BinarySearchVisualizer({
   guideOpen,
   onGuideOpenChange,
   hideGuideToggle = false,
+  algorithm: externalAlgorithm,
+  onAlgorithmChange,
 }: BinarySearchVisualizerProps = {}) {
   const [array, setArray] = useState<number[]>([])
-  const [algorithm, setAlgorithm] = useState<SearchAlgorithm>('binary')
+  const [internalAlgorithm, setInternalAlgorithm] = useState<SearchAlgorithm>('binary')
+  const algorithm = externalAlgorithm ?? internalAlgorithm;
   const [isRunning, setIsRunning] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [target, setTarget] = useState(50)
@@ -524,7 +529,9 @@ export function BinarySearchVisualizer({
     const nextAlgorithm = value as SearchAlgorithm
     const nextInfo = SEARCH_ALGORITHM_INFO[nextAlgorithm]
 
-    setAlgorithm(nextAlgorithm)
+    if (onAlgorithmChange) onAlgorithmChange(nextAlgorithm)
+    else setInternalAlgorithm(nextAlgorithm)
+    
     setArray((previous) =>
       nextInfo.requiresSorted ? [...previous].sort((a, b) => a - b) : previous
     )

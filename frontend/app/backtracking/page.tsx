@@ -1,27 +1,36 @@
-import type { Metadata } from 'next'
-import { GitBranch } from 'lucide-react'
-import { WorkspaceShell } from '@/components/layout/workspace-shell'
-import { BacktrackingVisualizer } from '@/components/backtracking-visualizer'
+'use client'
 
-export const metadata: Metadata = {
-  title: 'Backtracking | AlgoLab',
-  description: 'Visualize Backtracking algorithms including N-Queens, Sum of Subsets, Graph Coloring, and TSP.',
-}
+import React, { useState } from 'react'
+import { BacktrackingVisualizer } from '@/components/backtracking-visualizer'
+import { AlgorithmPageLayout } from '@/components/algorithm-page-layout'
+import { BACKTRACKING_THEORY, BACKTRACKING_NAMES, BACKTRACKING_CODE, BACKTRACKING_QUIZ } from './theory-data'
+
+type BacktrackingAlgorithm = 'n-queens' | 'sum-of-subsets' | 'graph-coloring' | 'tsp'
 
 export default function BacktrackingPage() {
+  const [algorithm, setAlgorithm] = useState<string>('n-queens')
+  const [isGuideOpen, setIsGuideOpen] = useState(false)
+
   return (
-    <WorkspaceShell
-      title="Backtracking Algorithms"
-      description="Explore the state space tree incrementally. Watch the algorithm prune invalid paths and backtrack to find valid solutions."
-      headerAction={
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 shadow-inner">
-          <GitBranch className="size-6 text-primary" />
-        </div>
+    <AlgorithmPageLayout
+      categoryName="Backtracking Algorithms"
+      categoryBadgeClass="bg-pink-900/40 text-pink-400 border-pink-700/50 hover:bg-pink-900/50"
+      themeAccent="pink"
+      algorithms={BACKTRACKING_NAMES}
+      theoryData={BACKTRACKING_THEORY}
+      codeData={BACKTRACKING_CODE as any}
+      quizData={BACKTRACKING_QUIZ}
+      activeAlgorithm={algorithm}
+      onAlgorithmChange={setAlgorithm}
+      visualizerContent={
+        <BacktrackingVisualizer
+          guideOpen={isGuideOpen}
+          onGuideOpenChange={setIsGuideOpen}
+          hideGuideToggle
+          algorithm={algorithm as BacktrackingAlgorithm}
+          onAlgorithmChange={(v) => setAlgorithm(v)}
+        />
       }
-    >
-      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <BacktrackingVisualizer hideGuideToggle={false} />
-      </div>
-    </WorkspaceShell>
+    />
   )
 }

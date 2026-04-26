@@ -39,14 +39,19 @@ interface DPVisualizerProps {
   guideOpen?: boolean
   onGuideOpenChange?: (open: boolean) => void
   hideGuideToggle?: boolean
+  algorithm?: DPAlgorithm
+  onAlgorithmChange?: (alg: DPAlgorithm) => void
 }
 
 export function DPVisualizer({
   guideOpen,
   onGuideOpenChange,
   hideGuideToggle = false,
+  algorithm: externalAlgorithm,
+  onAlgorithmChange,
 }: DPVisualizerProps = {}) {
-  const [algorithm, setAlgorithm] = useState<DPAlgorithm>('lcs')
+  const [internalAlgorithm, setInternalAlgorithm] = useState<DPAlgorithm>('lcs')
+  const algorithm = externalAlgorithm ?? internalAlgorithm;
   const [isRunning, setIsRunning] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [isDone, setIsDone] = useState(false)
@@ -318,7 +323,12 @@ export function DPVisualizer({
                 <TabsContent value="algorithm" className="mt-0 space-y-7">
                   <div className="space-y-3">
                     <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">1. Select Algorithm</Label>
-                    <Select value={algorithm} onValueChange={v => { setAlgorithm(v as DPAlgorithm); resetViz() }} disabled={isRunning}>
+                    <Select value={algorithm} onValueChange={v => { 
+                      const alg = v as DPAlgorithm;
+                      if (onAlgorithmChange) onAlgorithmChange(alg);
+                      else setInternalAlgorithm(alg);
+                      resetViz();
+                    }} disabled={isRunning}>
                       <SelectTrigger className="h-10 bg-input/20 border-border/50"><SelectValue /></SelectTrigger>
                       <SelectContent className="bg-popover/95 backdrop-blur-xl border-border/50">
                         <SelectItem value="lcs">Longest Common Subsequence</SelectItem>

@@ -1,27 +1,36 @@
-import type { Metadata } from 'next'
-import { Zap } from 'lucide-react'
-import { WorkspaceShell } from '@/components/layout/workspace-shell'
-import { GreedyVisualizer } from '@/components/greedy-visualizer'
+'use client'
 
-export const metadata: Metadata = {
-  title: 'Greedy Algorithms | AlgoLab',
-  description: 'Visualize Greedy algorithms including Dijkstra, Kruskal, and Job Scheduling.',
-}
+import React, { useState } from 'react'
+import { GreedyVisualizer } from '@/components/greedy-visualizer'
+import { AlgorithmPageLayout } from '@/components/algorithm-page-layout'
+import { GREEDY_THEORY, GREEDY_NAMES, GREEDY_CODE, GREEDY_QUIZ } from './theory-data'
+
+type GreedyAlgorithm = 'dijkstra' | 'fractional-knapsack' | 'job-scheduling' | 'prims' | 'kruskals'
 
 export default function GreedyPage() {
+  const [algorithm, setAlgorithm] = useState<string>('dijkstra')
+  const [isGuideOpen, setIsGuideOpen] = useState(false)
+
   return (
-    <WorkspaceShell
-      title="Greedy Algorithms"
-      description="Make locally optimal choices at each stage to find a global optimum. Observe algorithms like Dijkstra's, Fractional Knapsack, and MSTs."
-      headerAction={
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 shadow-inner">
-          <Zap className="size-6 text-primary" />
-        </div>
+    <AlgorithmPageLayout
+      categoryName="Greedy Algorithms"
+      categoryBadgeClass="bg-amber-900/40 text-amber-400 border-amber-700/50 hover:bg-amber-900/50"
+      themeAccent="amber"
+      algorithms={GREEDY_NAMES}
+      theoryData={GREEDY_THEORY}
+      codeData={GREEDY_CODE as any}
+      quizData={GREEDY_QUIZ}
+      activeAlgorithm={algorithm}
+      onAlgorithmChange={setAlgorithm}
+      visualizerContent={
+        <GreedyVisualizer
+          guideOpen={isGuideOpen}
+          onGuideOpenChange={setIsGuideOpen}
+          hideGuideToggle
+          algorithm={algorithm as GreedyAlgorithm}
+          onAlgorithmChange={(v) => setAlgorithm(v)}
+        />
       }
-    >
-      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <GreedyVisualizer hideGuideToggle={false} />
-      </div>
-    </WorkspaceShell>
+    />
   )
 }

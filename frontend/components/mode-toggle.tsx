@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { Moon, Sun } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
@@ -10,7 +11,26 @@ interface ModeToggleProps {
 }
 
 export function ModeToggle({ compact = false }: ModeToggleProps) {
+  const [mounted, setMounted] = useState(false)
   const { setTheme, resolvedTheme } = useTheme()
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    return (
+      <Button
+        variant="ghost"
+        size={compact ? 'icon-sm' : 'icon'}
+        className="relative rounded-full border border-border/35 bg-background/25"
+        aria-label="Toggle theme mode"
+      >
+        <span className="size-[1rem]" />
+      </Button>
+    )
+  }
+
   const isDark = resolvedTheme === 'dark'
 
   const handleToggle = () => {

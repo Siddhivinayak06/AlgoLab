@@ -7,7 +7,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Code2, Menu, Search, ChevronDown } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { getApiErrorMessage, getCurrentUser, logout, type AuthUser } from '@/lib/api'
 import { ModeToggle } from '@/components/mode-toggle'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -147,21 +146,11 @@ export function AppNavbar({
   const pathname = usePathname()
   const router = useRouter()
 
-  const [user, setUser] = useState<AuthUser | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearchFocused, setIsSearchFocused] = useState(false)
 
-  useEffect(() => {
-    let mounted = true
-    void getCurrentUser()
-      .then((currentUser) => { if (mounted) setUser(currentUser) })
-      .catch(() => { if (mounted) setUser(null) })
-    return () => { mounted = false }
-  }, [])
-
-  const navSections = useMemo(() => getGroupedNavigationByRole(user?.role), [user?.role])
+  const navSections = useMemo(() => getGroupedNavigationByRole(undefined), [])
   const navItems = useMemo(() => navSections.flatMap(s => s.items), [navSections])
 
   const searchTargets = useMemo(() => {
@@ -232,20 +221,6 @@ export function AppNavbar({
     navigateFromSearch(firstResult)
   }
 
-  const handleLogout = async () => {
-    if (isLoggingOut) return
-    try {
-      setIsLoggingOut(true)
-      await logout()
-      toast.success('Logged out successfully')
-      router.push('/login')
-      router.refresh()
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Logout failed'))
-    } finally {
-      setIsLoggingOut(false)
-    }
-  }
 
   return (
     <header className="sticky top-0 z-50">
@@ -332,9 +307,9 @@ export function AppNavbar({
 
             <div className="hidden md:block">
               <UserDropdown
-                user={user}
-                isLoggingOut={isLoggingOut}
-                onLogout={() => handleLogout()}
+                user={null}
+                isLoggingOut={false}
+                onLogout={() => {}}
               />
             </div>
 
@@ -358,12 +333,12 @@ export function AppNavbar({
       <MobileSidebar
         open={mobileOpen}
         onOpenChange={setMobileOpen}
-        user={user}
+        user={null}
         navItems={navItems}
         pathname={pathname}
         notificationCount={0}
-        isLoggingOut={isLoggingOut}
-        onLogout={() => handleLogout()}
+        isLoggingOut={false}
+        onLogout={() => {}}
       />
     </header>
   )

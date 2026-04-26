@@ -5,7 +5,6 @@ import { motion } from 'framer-motion'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { getApiErrorMessage, uploadImage } from '@/lib/api'
 import {
   Select,
   SelectContent,
@@ -46,24 +45,59 @@ export function PixelSortingLab() {
     try {
       setIsUploading(true)
 
-      const uploadedImage = await uploadImage(file)
+      const img = new Image()
+      img.src = URL.createObjectURL(file)
+      await new Promise((resolve, reject) => {
+        img.onload = resolve
+        img.onerror = reject
+      })
+
+      // Scale down image if too large (e.g., pixel sorting is slow)
+      let targetWidth = img.width
+      let targetHeight = img.height
+      const maxPixels = 100 * 100 // 10,000 pixels limit for fast sorting
+
+      if (img.width * img.height > maxPixels) {
+        const ratio = Math.sqrt(maxPixels / (img.width * img.height))
+        targetWidth = Math.floor(img.width * ratio)
+        targetHeight = Math.floor(img.height * ratio)
+      }
+
+      const canvas = document.createElement('canvas')
+      canvas.width = targetWidth
+      canvas.height = targetHeight
+      const ctx = canvas.getContext('2d')!
+      ctx.drawImage(img, 0, 0, targetWidth, targetHeight)
+      
+      const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight)
+      const data = imageData.data
+      const pixels: PixelData[] = []
+
+      for (let i = 0; i < data.length; i += 4) {
+        pixels.push({
+          r: data[i],
+          g: data[i + 1],
+          b: data[i + 2],
+          a: data[i + 3],
+        })
+      }
 
       setImageInfo({
         name: file.name,
-        width: uploadedImage.width,
-        height: uploadedImage.height,
+        width: targetWidth,
+        height: targetHeight,
       })
-      setBasePixels(uploadedImage.pixels)
+      setBasePixels(pixels)
       setSortedPixels(null)
       setProgress(0)
 
-      const shuffled = shufflePixels(uploadedImage.pixels)
+      const shuffled = shufflePixels(pixels)
       setShuffledPixels(shuffled)
-      drawPixels(shuffled, uploadedImage.width, uploadedImage.height)
+      drawPixels(shuffled, targetWidth, targetHeight)
 
-      toast.success('Image uploaded successfully')
+      toast.success('Image loaded successfully')
     } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Image upload failed'))
+      toast.error('Image load failed')
       console.error(error)
     } finally {
       setIsUploading(false)

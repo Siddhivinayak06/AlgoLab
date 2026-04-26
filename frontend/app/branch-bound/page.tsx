@@ -1,27 +1,32 @@
-import type { Metadata } from 'next'
-import { Binary } from 'lucide-react'
-import { WorkspaceShell } from '@/components/layout/workspace-shell'
-import { BranchBoundVisualizer } from '@/components/branch-bound-visualizer'
+'use client'
 
-export const metadata: Metadata = {
-  title: 'Branch & Bound | AlgoLab',
-  description: 'Visualize Branch and Bound algorithms including the 15-Puzzle solver.',
-}
+import React, { useState } from 'react'
+import { BranchBoundVisualizer } from '@/components/branch-bound-visualizer'
+import { AlgorithmPageLayout } from '@/components/algorithm-page-layout'
+import { BRANCH_BOUND_THEORY, BRANCH_BOUND_NAMES, BRANCH_BOUND_CODE, BRANCH_BOUND_QUIZ } from './theory-data'
 
 export default function BranchBoundPage() {
+  const [algorithm, setAlgorithm] = useState<string>('15-puzzle')
+  const [isGuideOpen, setIsGuideOpen] = useState(false)
+
   return (
-    <WorkspaceShell
-      title="Branch & Bound Algorithms"
-      description="Use heuristic cost functions to guide the search through the state space tree efficiently. See it in action with the 15-Puzzle."
-      headerAction={
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 shadow-inner">
-          <Binary className="size-6 text-primary" />
-        </div>
+    <AlgorithmPageLayout
+      categoryName="Branch & Bound Algorithms"
+      categoryBadgeClass="bg-teal-900/40 text-teal-400 border-teal-700/50 hover:bg-teal-900/50"
+      themeAccent="teal"
+      algorithms={BRANCH_BOUND_NAMES}
+      theoryData={BRANCH_BOUND_THEORY}
+      codeData={BRANCH_BOUND_CODE as any}
+      quizData={BRANCH_BOUND_QUIZ}
+      activeAlgorithm={algorithm}
+      onAlgorithmChange={setAlgorithm}
+      visualizerContent={
+        <BranchBoundVisualizer
+          guideOpen={isGuideOpen}
+          onGuideOpenChange={setIsGuideOpen}
+          hideGuideToggle
+        />
       }
-    >
-      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <BranchBoundVisualizer hideGuideToggle={false} />
-      </div>
-    </WorkspaceShell>
+    />
   )
 }

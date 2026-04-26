@@ -38,6 +38,8 @@ interface BacktrackingVisualizerProps {
   guideOpen?: boolean
   onGuideOpenChange?: (open: boolean) => void
   hideGuideToggle?: boolean
+  algorithm?: BacktrackingAlgorithm
+  onAlgorithmChange?: (alg: BacktrackingAlgorithm) => void
 }
 
 type BacktrackingAlgorithm = 'n-queens' | 'sum-of-subsets' | 'graph-coloring' | 'tsp'
@@ -46,8 +48,11 @@ export function BacktrackingVisualizer({
   guideOpen,
   onGuideOpenChange,
   hideGuideToggle = false,
+  algorithm: externalAlgorithm,
+  onAlgorithmChange,
 }: BacktrackingVisualizerProps = {}) {
-  const [algorithm, setAlgorithm] = useState<BacktrackingAlgorithm>('n-queens')
+  const [internalAlgorithm, setInternalAlgorithm] = useState<BacktrackingAlgorithm>('n-queens')
+  const algorithm = externalAlgorithm ?? internalAlgorithm;
   const [isRunning, setIsRunning] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [isDone, setIsDone] = useState(false)
@@ -655,7 +660,12 @@ export function BacktrackingVisualizer({
                 <TabsContent value="algorithm" className="mt-0 space-y-6">
                   <div className="space-y-3">
                     <Label className="text-xs font-bold uppercase text-muted-foreground">1. Select Algorithm</Label>
-                    <Select value={algorithm} onValueChange={v => { setAlgorithm(v as BacktrackingAlgorithm); resetViz() }} disabled={isRunning}>
+                    <Select value={algorithm} onValueChange={v => {
+                      const alg = v as BacktrackingAlgorithm;
+                      if (onAlgorithmChange) onAlgorithmChange(alg);
+                      else setInternalAlgorithm(alg);
+                      resetViz();
+                    }} disabled={isRunning}>
                       <SelectTrigger className="h-9 bg-input/20 border-border/50"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="n-queens">N-Queens</SelectItem>

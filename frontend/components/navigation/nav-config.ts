@@ -1,22 +1,18 @@
 import type { LucideIcon } from 'lucide-react'
 import {
-  BarChart3,
   Binary,
-  FileText,
   Flame,
   Gauge,
   GitBranch,
-  History,
   Info,
   Image as ImageIcon,
   LayoutDashboard,
   LineChart,
-  Shield,
-  Users,
   Search,
   Layers,
   Zap,
   Network,
+  HelpCircle,
 } from 'lucide-react'
 
 import type { UserRole } from '@/lib/api'
@@ -122,40 +118,10 @@ const navigationSections: NavSection[] = [
         roles: ['student', 'instructor', 'admin'],
       },
       {
-        label: 'Experiment History',
-        href: '/history',
-        icon: History,
+        label: 'Global Quiz',
+        href: '/quiz',
+        icon: HelpCircle,
         roles: ['student', 'instructor', 'admin'],
-      },
-      {
-        label: 'Reports',
-        href: '/reports',
-        icon: FileText,
-        roles: ['student', 'instructor', 'admin'],
-      },
-    ],
-  },
-  {
-    title: 'System',
-    items: [
-      {
-        label: 'Analytics',
-        href: '/analytics',
-        icon: BarChart3,
-        roles: ['instructor', 'admin'],
-      },
-      {
-        label: 'Admin Dashboard',
-        href: '/admin',
-        icon: Shield,
-        roles: ['admin'],
-      },
-      {
-        label: 'User Management',
-        href: '/admin#user-management',
-        icon: Users,
-        roles: ['admin'],
-        activeMatchers: ['/admin'],
       },
     ],
   },

@@ -158,11 +158,18 @@ function toStepTypeBadgeClass(stepType?: SortStep['stepType']) {
 
 export function AlgorithmVisualizer({
   guideOpen, onGuideOpenChange, hideGuideToggle = false,
-}: { guideOpen?: boolean, onGuideOpenChange?: (open: boolean) => void, hideGuideToggle?: boolean } = {}) {
+  algorithm: externalAlgorithm, onAlgorithmChange
+}: { guideOpen?: boolean, onGuideOpenChange?: (open: boolean) => void, hideGuideToggle?: boolean, algorithm?: SupportedAlgorithm, onAlgorithmChange?: (alg: SupportedAlgorithm) => void } = {}) {
   const [internalGuideOpen, setInternalGuideOpen] = useState(false)
   const resolvedGuideOpen = typeof guideOpen === 'boolean' ? guideOpen : internalGuideOpen
 
-  const [algorithm, setAlgorithm] = useState<SupportedAlgorithm>('bubble')
+  const [internalAlgorithm, setInternalAlgorithm] = useState<SupportedAlgorithm>('bubble')
+  const algorithm = externalAlgorithm ?? internalAlgorithm;
+  
+  const handleAlgorithmChange = (v: SupportedAlgorithm) => {
+    if (onAlgorithmChange) onAlgorithmChange(v)
+    else setInternalAlgorithm(v)
+  }
   const [dataType, setDataType] = useState('Random')
   const [arraySize, setArraySize] = useState(30)
   
@@ -496,7 +503,7 @@ export function AlgorithmVisualizer({
                 <TabsContent value="algorithm" className="mt-0 space-y-7">
                   <div className="space-y-3">
                     <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">1. Select Algorithm</Label>
-                    <Select value={algorithm} onValueChange={(v) => { setAlgorithm(v as SupportedAlgorithm); resetSession(); }} disabled={isRunning && !isPaused}>
+                    <Select value={algorithm} onValueChange={(v) => { handleAlgorithmChange(v as SupportedAlgorithm); resetSession(); }} disabled={isRunning && !isPaused}>
                       <SelectTrigger className="h-10 bg-input/20 border-border/50 transition-all focus:ring-primary/40"><SelectValue /></SelectTrigger>
                       <SelectContent className="bg-popover/95 backdrop-blur-xl border-border/50">
                         <SelectItem value="bubble">Bubble Sort</SelectItem>

@@ -24,14 +24,14 @@ export default function Home() {
             <span className="text-xl font-bold text-foreground">Algorithm Analyzer</span>
           </div>
           <div className="flex gap-4">
-            <Link href="/login">
+            <Link href="/visualizer">
               <Button variant="ghost" className="text-foreground hover:bg-card/50">
-                Login
+                Visualizer
               </Button>
             </Link>
-            <Link href="/register">
+            <Link href="/dashboard">
               <Button className="bg-primary hover:bg-primary/90 text-foreground">
-                Sign Up
+                Dashboard
               </Button>
             </Link>
           </div>
@@ -51,14 +51,16 @@ export default function Home() {
             Master algorithm efficiency with interactive visualizations. Watch sorting algorithms compete, analyze performance metrics, and understand computational complexity in real-time.
           </p>
           <div className="flex gap-4 justify-center">
-            <Link href="/register">
+            <Link href="/dashboard">
               <Button size="lg" className="bg-primary hover:bg-primary/90 text-foreground">
                 Get Started <ArrowRight className="ml-2 w-4 h-4" />
               </Button>
             </Link>
-            <Button size="lg" variant="outline" className="border-border/50 text-foreground hover:bg-card/50">
-              Learn More
-            </Button>
+            <Link href="/visualizer">
+              <Button size="lg" variant="outline" className="border-border/50 text-foreground hover:bg-card/50">
+                Try Visualizer
+              </Button>
+            </Link>
           </div>
         </div>
       </section>

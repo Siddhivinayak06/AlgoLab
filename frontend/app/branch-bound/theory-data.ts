@@ -72,7 +72,23 @@ def solve(initial, goal):
         # Generate children
         # for child_matrix in get_children(min_node.matrix):
         #     heapq.heappush(pq, Node(child_matrix, cost, level + 1))`,
-    'c': `// Example coming soon for 15-Puzzle in C`
+    'c': `typedef struct Node {
+    int matrix[4][4];
+    int cost, level, blank_x, blank_y;
+} Node;
+
+int calculateCost(int matrix[4][4], int goal[4][4]) {
+    int count = 0;
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+            if (matrix[i][j] && matrix[i][j] != goal[i][j])
+                count++;
+    return count;
+}
+
+// Uses priority queue (min-heap) to explore
+// nodes with lowest (cost + level) first
+// Prunes branches where cost exceeds current best`
   }
 };
 

@@ -185,19 +185,182 @@ double fractionalKnapsack(int W, struct Item arr[], int n) {
 }`
   },
   'job-scheduling': {
-    'java': `// Example coming soon`,
-    'python': `// Example coming soon`,
-    'c': `// Example coming soon`
+    'java': `class Job {
+    int id, deadline, profit;
+    Job(int id, int d, int p) { this.id=id; deadline=d; profit=p; }
+}
+public int[] jobScheduling(Job[] jobs, int n) {
+    Arrays.sort(jobs, (a,b) -> b.profit - a.profit);
+    int maxDeadline = 0;
+    for (Job j : jobs) maxDeadline = Math.max(maxDeadline, j.deadline);
+    int[] slot = new int[maxDeadline + 1];
+    Arrays.fill(slot, -1);
+    int totalProfit = 0, count = 0;
+    for (Job j : jobs) {
+        for (int k = j.deadline; k >= 1; k--) {
+            if (slot[k] == -1) {
+                slot[k] = j.id; totalProfit += j.profit; count++;
+                break;
+            }
+        }
+    }
+    return new int[]{count, totalProfit};
+}`,
+    'python': `def job_scheduling(jobs):
+    # jobs = [(id, deadline, profit), ...]
+    jobs.sort(key=lambda x: x[2], reverse=True)
+    max_deadline = max(j[1] for j in jobs)
+    slot = [-1] * (max_deadline + 1)
+    total_profit = 0
+    count = 0
+    for job in jobs:
+        for k in range(job[1], 0, -1):
+            if slot[k] == -1:
+                slot[k] = job[0]
+                total_profit += job[2]
+                count += 1
+                break
+    return count, total_profit`,
+    'c': `struct Job { int id, deadline, profit; };
+int cmp(const void *a, const void *b) {
+    return ((struct Job*)b)->profit - ((struct Job*)a)->profit;
+}
+void jobScheduling(struct Job jobs[], int n) {
+    qsort(jobs, n, sizeof(struct Job), cmp);
+    int maxD = 0;
+    for (int i = 0; i < n; i++)
+        if (jobs[i].deadline > maxD) maxD = jobs[i].deadline;
+    int slot[maxD + 1];
+    memset(slot, -1, sizeof(slot));
+    int profit = 0, count = 0;
+    for (int i = 0; i < n; i++)
+        for (int k = jobs[i].deadline; k >= 1; k--)
+            if (slot[k] == -1) {
+                slot[k] = jobs[i].id;
+                profit += jobs[i].profit; count++;
+                break;
+            }
+}`
   },
   'prim': {
-    'java': `// Example coming soon`,
-    'python': `// Example coming soon`,
-    'c': `// Example coming soon`
+    'java': `public void primMST(int graph[][], int V) {
+    int[] parent = new int[V];
+    int[] key = new int[V];
+    boolean[] inMST = new boolean[V];
+    Arrays.fill(key, Integer.MAX_VALUE);
+    key[0] = 0; parent[0] = -1;
+    for (int count = 0; count < V - 1; count++) {
+        int u = -1, min = Integer.MAX_VALUE;
+        for (int v = 0; v < V; v++)
+            if (!inMST[v] && key[v] < min) { min = key[v]; u = v; }
+        inMST[u] = true;
+        for (int v = 0; v < V; v++)
+            if (graph[u][v] != 0 && !inMST[v] && graph[u][v] < key[v]) {
+                key[v] = graph[u][v]; parent[v] = u;
+            }
+    }
+}`,
+    'python': `import heapq
+def prim_mst(graph, V):
+    key = [float('inf')] * V
+    parent = [-1] * V
+    in_mst = [False] * V
+    key[0] = 0
+    pq = [(0, 0)]
+    while pq:
+        w, u = heapq.heappop(pq)
+        if in_mst[u]: continue
+        in_mst[u] = True
+        for v in range(V):
+            if graph[u][v] and not in_mst[v] and graph[u][v] < key[v]:
+                key[v] = graph[u][v]
+                parent[v] = u
+                heapq.heappush(pq, (key[v], v))
+    return parent`,
+    'c': `void primMST(int graph[100][100], int V) {
+    int parent[V], key[V];
+    bool inMST[V];
+    for (int i = 0; i < V; i++) { key[i] = INT_MAX; inMST[i] = false; }
+    key[0] = 0; parent[0] = -1;
+    for (int count = 0; count < V-1; count++) {
+        int min = INT_MAX, u = -1;
+        for (int v = 0; v < V; v++)
+            if (!inMST[v] && key[v] < min) { min = key[v]; u = v; }
+        inMST[u] = true;
+        for (int v = 0; v < V; v++)
+            if (graph[u][v] && !inMST[v] && graph[u][v] < key[v]) {
+                key[v] = graph[u][v]; parent[v] = u;
+            }
+    }
+}`
   },
   'kruskal': {
-    'java': `// Example coming soon`,
-    'python': `// Example coming soon`,
-    'c': `// Example coming soon`
+    'java': `class Edge implements Comparable<Edge> {
+    int src, dest, weight;
+    public int compareTo(Edge e) { return this.weight - e.weight; }
+}
+int[] parent, rank;
+int find(int i) { if (parent[i] != i) parent[i] = find(parent[i]); return parent[i]; }
+void union(int x, int y) {
+    int xr = find(x), yr = find(y);
+    if (rank[xr] < rank[yr]) parent[xr] = yr;
+    else if (rank[xr] > rank[yr]) parent[yr] = xr;
+    else { parent[yr] = xr; rank[xr]++; }
+}
+public void kruskalMST(Edge[] edges, int V) {
+    Arrays.sort(edges);
+    parent = new int[V]; rank = new int[V];
+    for (int i = 0; i < V; i++) parent[i] = i;
+    int edgeCount = 0;
+    for (Edge e : edges) {
+        if (find(e.src) != find(e.dest)) {
+            union(e.src, e.dest); edgeCount++;
+            if (edgeCount == V - 1) break;
+        }
+    }
+}`,
+    'python': `def find(parent, i):
+    if parent[i] != i:
+        parent[i] = find(parent, parent[i])
+    return parent[i]
+
+def union(parent, rank, x, y):
+    xr, yr = find(parent, x), find(parent, y)
+    if rank[xr] < rank[yr]: parent[xr] = yr
+    elif rank[xr] > rank[yr]: parent[yr] = xr
+    else: parent[yr] = xr; rank[xr] += 1
+
+def kruskal_mst(edges, V):
+    edges.sort(key=lambda e: e[2])
+    parent = list(range(V))
+    rank = [0] * V
+    mst = []
+    for u, v, w in edges:
+        if find(parent, u) != find(parent, v):
+            union(parent, rank, u, v)
+            mst.append((u, v, w))
+            if len(mst) == V - 1: break
+    return mst`,
+    'c': `int parent[100], rnk[100];
+int find(int i) { if (parent[i]!=i) parent[i]=find(parent[i]); return parent[i]; }
+void unite(int x, int y) {
+    int xr=find(x), yr=find(y);
+    if (rnk[xr]<rnk[yr]) parent[xr]=yr;
+    else if (rnk[xr]>rnk[yr]) parent[yr]=xr;
+    else { parent[yr]=xr; rnk[xr]++; }
+}
+int cmp(const void *a, const void *b) {
+    return ((int*)a)[2] - ((int*)b)[2];
+}
+void kruskalMST(int edges[][3], int E, int V) {
+    qsort(edges, E, sizeof(edges[0]), cmp);
+    for (int i=0; i<V; i++) { parent[i]=i; rnk[i]=0; }
+    int count=0;
+    for (int i=0; i<E && count<V-1; i++)
+        if (find(edges[i][0])!=find(edges[i][1])) {
+            unite(edges[i][0], edges[i][1]); count++;
+        }
+}`
   }
 };
 

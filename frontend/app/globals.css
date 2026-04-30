@@ -145,21 +145,157 @@
     @apply border border-border/30 rounded-lg;
   }
 
-  /* Gradient mesh background */
+  /* Gradient mesh background — animated */
   .gradient-mesh {
-    background: radial-gradient(circle at 0% 0%, rgba(98, 102, 255, 0.18), transparent 45%),
-      radial-gradient(circle at 100% 100%, rgba(79, 70, 229, 0.18), transparent 42%),
-      linear-gradient(150deg, #f8f9ff 0%, #edf3ff 46%, #f8f4ff 100%);
-    background-size: 400% 400%;
+    background:
+      radial-gradient(ellipse 80% 60% at 10% 20%, rgba(99, 102, 241, 0.15), transparent 55%),
+      radial-gradient(ellipse 60% 80% at 90% 80%, rgba(139, 92, 246, 0.12), transparent 50%),
+      radial-gradient(ellipse 50% 50% at 50% 50%, rgba(59, 130, 246, 0.06), transparent 60%),
+      linear-gradient(160deg, #f8faff 0%, #eef2ff 30%, #f5f3ff 60%, #faf5ff 100%);
+    background-size: 200% 200%;
     background-attachment: fixed;
+    animation: gradient-shift 20s ease-in-out infinite;
   }
 
   .dark .gradient-mesh {
-    background: radial-gradient(circle at 0% 0%, rgba(120, 119, 255, 0.14), transparent 45%),
-      radial-gradient(circle at 100% 100%, rgba(217, 70, 239, 0.11), transparent 42%),
-      linear-gradient(135deg, #0f0c3f 0%, #1a0033 25%, #0f1f3f 50%, #1a1a3f 75%, #0f0c3f 100%);
-    background-size: 400% 400%;
+    background:
+      radial-gradient(ellipse 80% 60% at 10% 20%, rgba(99, 102, 241, 0.18), transparent 55%),
+      radial-gradient(ellipse 60% 80% at 90% 80%, rgba(168, 85, 247, 0.14), transparent 50%),
+      radial-gradient(ellipse 50% 50% at 50% 0%, rgba(59, 130, 246, 0.08), transparent 60%),
+      linear-gradient(145deg, #0a0a1a 0%, #0f0a2e 25%, #130a33 50%, #0d1130 75%, #0a0a1a 100%);
+    background-size: 200% 200%;
     background-attachment: fixed;
+    animation: gradient-shift 20s ease-in-out infinite;
+  }
+
+  /* Breathing gradient animation */
+  @keyframes gradient-shift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  /* Elevated glass panel for content cards */
+  .glass-panel {
+    @apply bg-background/50 backdrop-blur-2xl border border-border/30 rounded-2xl;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+      0 1px 2px rgba(0, 0, 0, 0.04),
+      0 8px 32px rgba(0, 0, 0, 0.08);
+  }
+
+  .dark .glass-panel {
+    @apply bg-background/40;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+      0 1px 2px rgba(0, 0, 0, 0.15),
+      0 8px 32px rgba(0, 0, 0, 0.25);
+  }
+
+  /* Gradient top-border accent for panels */
+  .gradient-border-top {
+    position: relative;
+    overflow: hidden;
+  }
+  .gradient-border-top::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.6), rgba(168, 85, 247, 0.6), transparent);
+    opacity: 0.7;
+    z-index: 1;
+  }
+
+  .dark .gradient-border-top::before {
+    background: linear-gradient(90deg, transparent, rgba(129, 140, 248, 0.7), rgba(192, 132, 252, 0.7), transparent);
+    opacity: 0.9;
+  }
+
+  /* Tab pill bar container */
+  .tab-pill-bar {
+    @apply bg-foreground/[0.03] backdrop-blur-xl border border-border/30 rounded-2xl;
+    padding: 5px;
+  }
+
+  .dark .tab-pill-bar {
+    @apply bg-white/[0.04] border-white/[0.08];
+  }
+
+  /* Active tab glow */
+  .tab-active-glow {
+    box-shadow:
+      0 1px 3px rgba(99, 102, 241, 0.15),
+      0 0 12px rgba(99, 102, 241, 0.08);
+  }
+
+  .dark .tab-active-glow {
+    box-shadow:
+      0 1px 3px rgba(129, 140, 248, 0.2),
+      0 0 16px rgba(129, 140, 248, 0.1);
+  }
+
+  /* Navbar gradient bottom border */
+  .nav-gradient-border {
+    border-bottom: none !important;
+    position: relative;
+  }
+  .nav-gradient-border::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg,
+      transparent 5%,
+      rgba(99, 102, 241, 0.25) 30%,
+      rgba(168, 85, 247, 0.3) 50%,
+      rgba(99, 102, 241, 0.25) 70%,
+      transparent 95%
+    );
+  }
+
+  .dark .nav-gradient-border::after {
+    background: linear-gradient(90deg,
+      transparent 5%,
+      rgba(129, 140, 248, 0.3) 30%,
+      rgba(192, 132, 252, 0.35) 50%,
+      rgba(129, 140, 248, 0.3) 70%,
+      transparent 95%
+    );
+  }
+
+  /* Gradient text helper */
+  .text-gradient-primary {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .dark .text-gradient-primary {
+    background: linear-gradient(135deg, #818cf8 0%, #a78bfa 50%, #c084fc 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Section heading accent line */
+  .section-heading {
+    position: relative;
+    padding-left: 14px;
+  }
+  .section-heading::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 4px;
+    bottom: 4px;
+    width: 3px;
+    border-radius: 2px;
+    background: linear-gradient(180deg, #6366f1, #a855f7);
   }
 
   /* Floating animation */
@@ -174,5 +310,15 @@
 
   .float {
     animation: float 3s ease-in-out infinite;
+  }
+
+  /* Subtle pulse for logo */
+  @keyframes logo-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.15); }
+    50% { box-shadow: 0 0 0 6px rgba(99, 102, 241, 0); }
+  }
+
+  .logo-glow {
+    animation: logo-pulse 3s ease-in-out infinite;
   }
 }

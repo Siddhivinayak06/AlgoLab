@@ -118,19 +118,147 @@ void placeQueen(int board[], int row, int n) {
 }`
   },
   'sum-of-subsets': {
-    'java': `// Example coming soon`,
-    'python': `// Example coming soon`,
-    'c': `// Example coming soon`
+    'java': `public void sumOfSubsets(int[] set, int target) {
+    Arrays.sort(set);
+    solve(set, target, 0, 0, new ArrayList<>());
+}
+void solve(int[] set, int target, int idx, int sum, List<Integer> subset) {
+    if (sum == target) { System.out.println(subset); return; }
+    for (int i = idx; i < set.length; i++) {
+        if (sum + set[i] > target) break;
+        subset.add(set[i]);
+        solve(set, target, i + 1, sum + set[i], subset);
+        subset.remove(subset.size() - 1);
+    }
+}`,
+    'python': `def sum_of_subsets(nums, target):
+    nums.sort()
+    result = []
+    def backtrack(start, current, total):
+        if total == target:
+            result.append(current[:])
+            return
+        for i in range(start, len(nums)):
+            if total + nums[i] > target:
+                break
+            current.append(nums[i])
+            backtrack(i + 1, current, total + nums[i])
+            current.pop()
+    backtrack(0, [], 0)
+    return result`,
+    'c': `void solve(int set[], int n, int target, int idx, int sum,
+           int subset[], int subSize) {
+    if (sum == target) {
+        for (int i = 0; i < subSize; i++) printf("%d ", subset[i]);
+        printf("\\n"); return;
+    }
+    for (int i = idx; i < n; i++) {
+        if (sum + set[i] > target) break;
+        subset[subSize] = set[i];
+        solve(set, n, target, i+1, sum+set[i], subset, subSize+1);
+    }
+}`
   },
   'graph-coloring': {
-    'java': `// Example coming soon`,
-    'python': `// Example coming soon`,
-    'c': `// Example coming soon`
+    'java': `public boolean graphColoring(int[][] graph, int m, int V) {
+    int[] color = new int[V];
+    return solve(graph, m, color, 0, V);
+}
+boolean isSafe(int[][] graph, int[] color, int v, int c, int V) {
+    for (int i = 0; i < V; i++)
+        if (graph[v][i] == 1 && color[i] == c) return false;
+    return true;
+}
+boolean solve(int[][] graph, int m, int[] color, int v, int V) {
+    if (v == V) return true;
+    for (int c = 1; c <= m; c++) {
+        if (isSafe(graph, color, v, c, V)) {
+            color[v] = c;
+            if (solve(graph, m, color, v + 1, V)) return true;
+            color[v] = 0;
+        }
+    }
+    return false;
+}`,
+    'python': `def graph_coloring(graph, m, V):
+    color = [0] * V
+    def is_safe(v, c):
+        for i in range(V):
+            if graph[v][i] == 1 and color[i] == c:
+                return False
+        return True
+    def solve(v):
+        if v == V: return True
+        for c in range(1, m + 1):
+            if is_safe(v, c):
+                color[v] = c
+                if solve(v + 1): return True
+                color[v] = 0
+        return False
+    return solve(0)`,
+    'c': `bool isSafe(int graph[100][100], int color[], int v, int c, int V) {
+    for (int i = 0; i < V; i++)
+        if (graph[v][i] && color[i] == c) return false;
+    return true;
+}
+bool solve(int graph[100][100], int m, int color[], int v, int V) {
+    if (v == V) return true;
+    for (int c = 1; c <= m; c++) {
+        if (isSafe(graph, color, v, c, V)) {
+            color[v] = c;
+            if (solve(graph, m, color, v+1, V)) return true;
+            color[v] = 0;
+        }
+    }
+    return false;
+}`
   },
   'tsp': {
-    'java': `// Example coming soon`,
-    'python': `// Example coming soon`,
-    'c': `// Example coming soon`
+    'java': `int minCost = Integer.MAX_VALUE;
+public void tsp(int[][] graph, boolean[] visited, int curr, int n, int count, int cost) {
+    if (count == n && graph[curr][0] > 0) {
+        minCost = Math.min(minCost, cost + graph[curr][0]);
+        return;
+    }
+    for (int i = 0; i < n; i++) {
+        if (!visited[i] && graph[curr][i] > 0) {
+            visited[i] = true;
+            tsp(graph, visited, i, n, count + 1, cost + graph[curr][i]);
+            visited[i] = false;
+        }
+    }
+}`,
+    'python': `def tsp(graph, n):
+    min_cost = [float('inf')]
+    visited = [False] * n
+    visited[0] = True
+    def solve(curr, count, cost):
+        if count == n and graph[curr][0] > 0:
+            min_cost[0] = min(min_cost[0], cost + graph[curr][0])
+            return
+        for i in range(n):
+            if not visited[i] and graph[curr][i] > 0:
+                visited[i] = True
+                solve(i, count + 1, cost + graph[curr][i])
+                visited[i] = False
+    solve(0, 1, 0)
+    return min_cost[0]`,
+    'c': `int minCost = INT_MAX;
+void tsp(int graph[100][100], bool visited[], int curr,
+         int n, int count, int cost) {
+    if (count == n && graph[curr][0]) {
+        if (cost + graph[curr][0] < minCost)
+            minCost = cost + graph[curr][0];
+        return;
+    }
+    for (int i = 0; i < n; i++) {
+        if (!visited[i] && graph[curr][i]) {
+            visited[i] = true;
+            tsp(graph, visited, i, n, count+1, cost+graph[curr][i]);
+            visited[i] = false;
+        }
+    }
+}`
   }
 };
 

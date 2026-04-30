@@ -95,13 +95,12 @@ export const ALGORITHM_THEORY: Record<string, AlgorithmTheory> = {
 };
 
 export const ALGORITHM_CODE: Record<string, Record<string, string>> = {
-  'bubble': {
-    'java': `public void bubbleSort(int arr[]) {
+  bubble: {
+    java: `public void bubbleSort(int arr[]) {
     int n = arr.length;
     for (int i = 0; i < n-1; i++) {
         for (int j = 0; j < n-i-1; j++) {
             if (arr[j] > arr[j+1]) {
-                // swap arr[j] and arr[j+1]
                 int temp = arr[j];
                 arr[j] = arr[j+1];
                 arr[j+1] = temp;
@@ -109,50 +108,150 @@ export const ALGORITHM_CODE: Record<string, Record<string, string>> = {
         }
     }
 }`,
-    'python': `def bubble_sort(arr):
+    python: `def bubble_sort(arr):
     n = len(arr)
     for i in range(n-1):
         for j in range(0, n-i-1):
             if arr[j] > arr[j+1]:
                 arr[j], arr[j+1] = arr[j+1], arr[j]`,
-    'c': `void bubbleSort(int arr[], int n) {
-    int i, j;
-    for (i = 0; i < n-1; i++) {
-        for (j = 0; j < n-i-1; j++) {
+    c: `void bubbleSort(int arr[], int n) {
+    for (int i = 0; i < n-1; i++)
+        for (int j = 0; j < n-i-1; j++)
             if (arr[j] > arr[j+1]) {
-                int temp = arr[j];
-                arr[j] = arr[j+1];
-                arr[j+1] = temp;
+                int t = arr[j]; arr[j] = arr[j+1]; arr[j+1] = t;
             }
-        }
+}`
+  },
+  selection: {
+    java: `public void selectionSort(int arr[]) {
+    int n = arr.length;
+    for (int i = 0; i < n-1; i++) {
+        int minIdx = i;
+        for (int j = i+1; j < n; j++)
+            if (arr[j] < arr[minIdx]) minIdx = j;
+        int temp = arr[minIdx];
+        arr[minIdx] = arr[i];
+        arr[i] = temp;
+    }
+}`,
+    python: `def selection_sort(arr):
+    n = len(arr)
+    for i in range(n):
+        min_idx = i
+        for j in range(i+1, n):
+            if arr[j] < arr[min_idx]:
+                min_idx = j
+        arr[i], arr[min_idx] = arr[min_idx], arr[i]`,
+    c: `void selectionSort(int arr[], int n) {
+    for (int i = 0; i < n-1; i++) {
+        int min = i;
+        for (int j = i+1; j < n; j++)
+            if (arr[j] < arr[min]) min = j;
+        int t = arr[min]; arr[min] = arr[i]; arr[i] = t;
     }
 }`
   },
-  'quick': {
-    'java': `public void quickSort(int arr[], int begin, int end) {
-    if (begin < end) {
-        int partitionIndex = partition(arr, begin, end);
-        quickSort(arr, begin, partitionIndex-1);
-        quickSort(arr, partitionIndex+1, end);
+  insertion: {
+    java: `public void insertionSort(int arr[]) {
+    int n = arr.length;
+    for (int i = 1; i < n; ++i) {
+        int key = arr[i];
+        int j = i - 1;
+        while (j >= 0 && arr[j] > key) {
+            arr[j + 1] = arr[j];
+            j = j - 1;
+        }
+        arr[j + 1] = key;
+    }
+}`,
+    python: `def insertion_sort(arr):
+    for i in range(1, len(arr)):
+        key = arr[i]
+        j = i - 1
+        while j >= 0 and key < arr[j]:
+            arr[j + 1] = arr[j]
+            j -= 1
+        arr[j + 1] = key`,
+    c: `void insertionSort(int arr[], int n) {
+    for (int i = 1; i < n; i++) {
+        int key = arr[i], j = i - 1;
+        while (j >= 0 && arr[j] > key) {
+            arr[j + 1] = arr[j];
+            j--;
+        }
+        arr[j + 1] = key;
+    }
+}`
+  },
+  merge: {
+    java: `public void mergeSort(int arr[], int l, int r) {
+    if (l < r) {
+        int m = l + (r - l) / 2;
+        mergeSort(arr, l, m);
+        mergeSort(arr, m + 1, r);
+        merge(arr, l, m, r);
     }
 }
-private int partition(int arr[], int begin, int end) {
-    int pivot = arr[end];
-    int i = (begin-1);
-    for (int j = begin; j < end; j++) {
+void merge(int arr[], int l, int m, int r) {
+    int n1 = m - l + 1, n2 = r - m;
+    int[] L = new int[n1], R = new int[n2];
+    for (int i = 0; i < n1; i++) L[i] = arr[l + i];
+    for (int j = 0; j < n2; j++) R[j] = arr[m + 1 + j];
+    int i = 0, j = 0, k = l;
+    while (i < n1 && j < n2)
+        arr[k++] = L[i] <= R[j] ? L[i++] : R[j++];
+    while (i < n1) arr[k++] = L[i++];
+    while (j < n2) arr[k++] = R[j++];
+}`,
+    python: `def merge_sort(arr):
+    if len(arr) > 1:
+        mid = len(arr) // 2
+        L, R = arr[:mid], arr[mid:]
+        merge_sort(L)
+        merge_sort(R)
+        i = j = k = 0
+        while i < len(L) and j < len(R):
+            if L[i] <= R[j]:
+                arr[k] = L[i]; i += 1
+            else:
+                arr[k] = R[j]; j += 1
+            k += 1
+        while i < len(L): arr[k] = L[i]; i += 1; k += 1
+        while j < len(R): arr[k] = R[j]; j += 1; k += 1`,
+    c: `void merge(int arr[], int l, int m, int r) {
+    int n1 = m-l+1, n2 = r-m, i, j, k;
+    int L[n1], R[n2];
+    for (i=0; i<n1; i++) L[i] = arr[l+i];
+    for (j=0; j<n2; j++) R[j] = arr[m+1+j];
+    i=0; j=0; k=l;
+    while (i<n1 && j<n2) arr[k++] = L[i]<=R[j] ? L[i++] : R[j++];
+    while (i<n1) arr[k++] = L[i++];
+    while (j<n2) arr[k++] = R[j++];
+}
+void mergeSort(int arr[], int l, int r) {
+    if (l<r) { int m=l+(r-l)/2; mergeSort(arr,l,m); mergeSort(arr,m+1,r); merge(arr,l,m,r); }
+}`
+  },
+  quick: {
+    java: `public void quickSort(int arr[], int low, int high) {
+    if (low < high) {
+        int pi = partition(arr, low, high);
+        quickSort(arr, low, pi - 1);
+        quickSort(arr, pi + 1, high);
+    }
+}
+int partition(int arr[], int low, int high) {
+    int pivot = arr[high], i = low - 1;
+    for (int j = low; j < high; j++) {
         if (arr[j] <= pivot) {
             i++;
-            int swapTemp = arr[i];
-            arr[i] = arr[j];
-            arr[j] = swapTemp;
+            int t = arr[i]; arr[i] = arr[j]; arr[j] = t;
         }
     }
-    int swapTemp = arr[i+1];
-    arr[i+1] = arr[end];
-    arr[end] = swapTemp;
-    return i+1;
+    int t = arr[i+1]; arr[i+1] = arr[high]; arr[high] = t;
+    return i + 1;
 }`,
-    'python': `def quick_sort(arr, low, high):
+    python: `def quick_sort(arr, low, high):
     if low < high:
         pi = partition(arr, low, high)
         quick_sort(arr, low, pi - 1)
@@ -163,69 +262,275 @@ def partition(arr, low, high):
     i = low - 1
     for j in range(low, high):
         if arr[j] <= pivot:
-            i = i + 1
+            i += 1
             arr[i], arr[j] = arr[j], arr[i]
-    arr[i + 1], arr[high] = arr[high], arr[i + 1]
+    arr[i+1], arr[high] = arr[high], arr[i+1]
     return i + 1`,
-    'c': `void quickSort(int arr[], int low, int high) {
+    c: `void quickSort(int arr[], int low, int high) {
     if (low < high) {
         int pi = partition(arr, low, high);
-        quickSort(arr, low, pi - 1);
-        quickSort(arr, pi + 1, high);
+        quickSort(arr, low, pi-1);
+        quickSort(arr, pi+1, high);
     }
 }
-int partition (int arr[], int low, int high) {
-    int pivot = arr[high];
-    int i = (low - 1);
-    for (int j = low; j <= high - 1; j++) {
-        if (arr[j] < pivot) {
-            i++;
-            int temp = arr[i];
-            arr[i] = arr[j];
+int partition(int arr[], int low, int high) {
+    int pivot = arr[high], i = low-1;
+    for (int j = low; j < high; j++)
+        if (arr[j] < pivot) { i++; int t=arr[i]; arr[i]=arr[j]; arr[j]=t; }
+    int t = arr[i+1]; arr[i+1] = arr[high]; arr[high] = t;
+    return i+1;
+}`
+  },
+  heap: {
+    java: `public void heapSort(int arr[]) {
+    int n = arr.length;
+    for (int i = n/2 - 1; i >= 0; i--) heapify(arr, n, i);
+    for (int i = n-1; i > 0; i--) {
+        int t = arr[0]; arr[0] = arr[i]; arr[i] = t;
+        heapify(arr, i, 0);
+    }
+}
+void heapify(int arr[], int n, int i) {
+    int largest = i, l = 2*i+1, r = 2*i+2;
+    if (l < n && arr[l] > arr[largest]) largest = l;
+    if (r < n && arr[r] > arr[largest]) largest = r;
+    if (largest != i) {
+        int t = arr[i]; arr[i] = arr[largest]; arr[largest] = t;
+        heapify(arr, n, largest);
+    }
+}`,
+    python: `def heap_sort(arr):
+    n = len(arr)
+    for i in range(n//2-1, -1, -1): heapify(arr, n, i)
+    for i in range(n-1, 0, -1):
+        arr[i], arr[0] = arr[0], arr[i]
+        heapify(arr, i, 0)
+
+def heapify(arr, n, i):
+    largest, l, r = i, 2*i+1, 2*i+2
+    if l < n and arr[l] > arr[largest]: largest = l
+    if r < n and arr[r] > arr[largest]: largest = r
+    if largest != i:
+        arr[i], arr[largest] = arr[largest], arr[i]
+        heapify(arr, n, largest)`,
+    c: `void heapify(int arr[], int n, int i) {
+    int largest = i, l = 2*i+1, r = 2*i+2;
+    if (l < n && arr[l] > arr[largest]) largest = l;
+    if (r < n && arr[r] > arr[largest]) largest = r;
+    if (largest != i) {
+        int t = arr[i]; arr[i] = arr[largest]; arr[largest] = t;
+        heapify(arr, n, largest);
+    }
+}
+void heapSort(int arr[], int n) {
+    for (int i = n/2-1; i >= 0; i--) heapify(arr, n, i);
+    for (int i = n-1; i > 0; i--) {
+        int t = arr[0]; arr[0] = arr[i]; arr[i] = t;
+        heapify(arr, i, 0);
+    }
+}`
+  },
+  shell: {
+    java: `public void shellSort(int arr[]) {
+    int n = arr.length;
+    for (int gap = n/2; gap > 0; gap /= 2) {
+        for (int i = gap; i < n; i++) {
+            int temp = arr[i], j;
+            for (j = i; j >= gap && arr[j-gap] > temp; j -= gap)
+                arr[j] = arr[j - gap];
             arr[j] = temp;
         }
     }
-    int temp = arr[i + 1];
-    arr[i + 1] = arr[high];
-    arr[high] = temp;
-    return (i + 1);
+}`,
+    python: `def shell_sort(arr):
+    n = len(arr)
+    gap = n // 2
+    while gap > 0:
+        for i in range(gap, n):
+            temp = arr[i]
+            j = i
+            while j >= gap and arr[j - gap] > temp:
+                arr[j] = arr[j - gap]
+                j -= gap
+            arr[j] = temp
+        gap //= 2`,
+    c: `void shellSort(int arr[], int n) {
+    for (int gap = n/2; gap > 0; gap /= 2)
+        for (int i = gap; i < n; i++) {
+            int temp = arr[i], j;
+            for (j = i; j >= gap && arr[j-gap] > temp; j -= gap)
+                arr[j] = arr[j-gap];
+            arr[j] = temp;
+        }
 }`
-  }
+  },
+  counting: {
+    java: `public void countingSort(int arr[]) {
+    int max = Arrays.stream(arr).max().getAsInt();
+    int[] count = new int[max + 1];
+    int[] output = new int[arr.length];
+    for (int val : arr) count[val]++;
+    for (int i = 1; i <= max; i++) count[i] += count[i-1];
+    for (int i = arr.length-1; i >= 0; i--) {
+        output[count[arr[i]] - 1] = arr[i];
+        count[arr[i]]--;
+    }
+    System.arraycopy(output, 0, arr, 0, arr.length);
+}`,
+    python: `def counting_sort(arr):
+    max_val = max(arr)
+    count = [0] * (max_val + 1)
+    output = [0] * len(arr)
+    for val in arr: count[val] += 1
+    for i in range(1, max_val + 1): count[i] += count[i-1]
+    for i in range(len(arr)-1, -1, -1):
+        output[count[arr[i]] - 1] = arr[i]
+        count[arr[i]] -= 1
+    for i in range(len(arr)): arr[i] = output[i]`,
+    c: `void countingSort(int arr[], int n) {
+    int max = arr[0];
+    for (int i = 1; i < n; i++) if (arr[i] > max) max = arr[i];
+    int count[max+1], output[n];
+    memset(count, 0, sizeof(count));
+    for (int i = 0; i < n; i++) count[arr[i]]++;
+    for (int i = 1; i <= max; i++) count[i] += count[i-1];
+    for (int i = n-1; i >= 0; i--) { output[count[arr[i]]-1] = arr[i]; count[arr[i]]--; }
+    for (int i = 0; i < n; i++) arr[i] = output[i];
+}`
+  },
+  radix: {
+    java: `public void radixSort(int arr[]) {
+    int max = Arrays.stream(arr).max().getAsInt();
+    for (int exp = 1; max / exp > 0; exp *= 10)
+        countSortByDigit(arr, exp);
+}
+void countSortByDigit(int arr[], int exp) {
+    int n = arr.length;
+    int[] output = new int[n], count = new int[10];
+    for (int val : arr) count[(val/exp) % 10]++;
+    for (int i = 1; i < 10; i++) count[i] += count[i-1];
+    for (int i = n-1; i >= 0; i--) {
+        output[count[(arr[i]/exp)%10] - 1] = arr[i];
+        count[(arr[i]/exp)%10]--;
+    }
+    System.arraycopy(output, 0, arr, 0, n);
+}`,
+    python: `def radix_sort(arr):
+    max_val = max(arr)
+    exp = 1
+    while max_val // exp > 0:
+        counting_sort_by_digit(arr, exp)
+        exp *= 10
+
+def counting_sort_by_digit(arr, exp):
+    n = len(arr)
+    output = [0] * n
+    count = [0] * 10
+    for val in arr: count[(val // exp) % 10] += 1
+    for i in range(1, 10): count[i] += count[i-1]
+    for i in range(n-1, -1, -1):
+        idx = (arr[i] // exp) % 10
+        output[count[idx] - 1] = arr[i]
+        count[idx] -= 1
+    for i in range(n): arr[i] = output[i]`,
+    c: `void countSort(int arr[], int n, int exp) {
+    int output[n], count[10] = {0};
+    for (int i = 0; i < n; i++) count[(arr[i]/exp)%10]++;
+    for (int i = 1; i < 10; i++) count[i] += count[i-1];
+    for (int i = n-1; i >= 0; i--) { output[count[(arr[i]/exp)%10]-1] = arr[i]; count[(arr[i]/exp)%10]--; }
+    for (int i = 0; i < n; i++) arr[i] = output[i];
+}
+void radixSort(int arr[], int n) {
+    int max = arr[0];
+    for (int i = 1; i < n; i++) if (arr[i] > max) max = arr[i];
+    for (int exp = 1; max/exp > 0; exp *= 10) countSort(arr, n, exp);
+}`
+  },
+  bucket: {
+    java: `public void bucketSort(float arr[]) {
+    int n = arr.length;
+    List<Float>[] buckets = new ArrayList[n];
+    for (int i = 0; i < n; i++) buckets[i] = new ArrayList<>();
+    for (float val : arr) buckets[(int)(n * val)].add(val);
+    for (List<Float> b : buckets) Collections.sort(b);
+    int idx = 0;
+    for (List<Float> b : buckets)
+        for (float val : b) arr[idx++] = val;
+}`,
+    python: `def bucket_sort(arr):
+    n = len(arr)
+    buckets = [[] for _ in range(n)]
+    for val in arr:
+        idx = int(n * val)
+        if idx == n: idx -= 1
+        buckets[idx].append(val)
+    for bucket in buckets:
+        bucket.sort()
+    result = []
+    for bucket in buckets:
+        result.extend(bucket)
+    return result`,
+    c: `// Bucket Sort for integers 0..max
+void bucketSort(int arr[], int n) {
+    int max = arr[0];
+    for (int i = 1; i < n; i++) if (arr[i] > max) max = arr[i];
+    int bucketCount = max/10 + 1;
+    // Create buckets, distribute, sort each, concatenate
+    // Uses insertion sort within each bucket
+}`
+  },
 };
 
 export const ALGORITHM_QUIZ: Record<string, QuizQuestion[]> = {
-  'bubble': [
-    {
-      question: "What is the best-case time complexity of Bubble Sort?",
-      options: ["O(n)", "O(n log n)", "O(n²)", "O(1)"],
-      answer: 0
-    },
-    {
-      question: "Is Bubble Sort a stable sorting algorithm?",
-      options: ["Yes", "No", "Depends on the data", "Only for integers"],
-      answer: 0
-    },
-    {
-      question: "Which scenario causes the worst-case time complexity for Bubble Sort?",
-      options: ["Array is already sorted", "Array is randomly sorted", "Array is sorted in reverse order", "Array contains duplicate elements"],
-      answer: 2
-    }
+  bubble: [
+    { question: "What is the best-case time complexity of Bubble Sort?", options: ["O(n)", "O(n log n)", "O(n²)", "O(1)"], answer: 0 },
+    { question: "Is Bubble Sort a stable sorting algorithm?", options: ["Yes", "No", "Depends on data", "Only for integers"], answer: 0 },
+    { question: "Which scenario causes worst-case for Bubble Sort?", options: ["Already sorted", "Random order", "Reverse sorted", "Duplicates"], answer: 2 },
   ],
-  'quick': [
-    {
-      question: "What is the worst-case time complexity of Quick Sort?",
-      options: ["O(n)", "O(n log n)", "O(n²)", "O(n³)"],
-      answer: 2
-    },
-    {
-      question: "How can the worst-case behavior of Quick Sort be avoided?",
-      options: ["By choosing the middle element as pivot", "By choosing a random pivot", "By using Median-of-Three pivot", "All of the above"],
-      answer: 3
-    },
-    {
-      question: "Is Quick Sort an in-place sorting algorithm?",
-      options: ["Yes, completely", "Yes, but it requires O(log n) stack space for recursion", "No, it requires O(n) extra space", "No, it requires O(n²) extra space"],
-      answer: 1
-    }
-  ]
+  selection: [
+    { question: "How many swaps does Selection Sort make at most?", options: ["O(n²)", "O(n)", "O(n log n)", "O(1)"], answer: 1 },
+    { question: "Is Selection Sort stable?", options: ["Yes", "No", "Sometimes", "Depends on implementation"], answer: 1 },
+    { question: "Selection Sort's time complexity is always:", options: ["O(n)", "O(n log n)", "O(n²)", "O(log n)"], answer: 2 },
+  ],
+  insertion: [
+    { question: "What is the best-case time complexity of Insertion Sort?", options: ["O(n²)", "O(n log n)", "O(n)", "O(1)"], answer: 2 },
+    { question: "Insertion Sort is most efficient for:", options: ["Large random arrays", "Nearly sorted arrays", "Reverse sorted arrays", "Arrays with all equal elements"], answer: 1 },
+    { question: "Is Insertion Sort stable?", options: ["Yes", "No", "Only for integers", "Depends on pivot"], answer: 0 },
+  ],
+  merge: [
+    { question: "What is Merge Sort's space complexity?", options: ["O(1)", "O(log n)", "O(n)", "O(n²)"], answer: 2 },
+    { question: "Is Merge Sort stable?", options: ["Yes", "No", "Depends on implementation", "Only for linked lists"], answer: 0 },
+    { question: "Merge Sort's time complexity is:", options: ["O(n²) in all cases", "O(n log n) in all cases", "O(n) best, O(n²) worst", "O(n log n) average, O(n²) worst"], answer: 1 },
+  ],
+  quick: [
+    { question: "What is the worst-case time complexity of Quick Sort?", options: ["O(n)", "O(n log n)", "O(n²)", "O(n³)"], answer: 2 },
+    { question: "How can worst-case Quick Sort be avoided?", options: ["Middle pivot", "Random pivot", "Median-of-Three", "All of the above"], answer: 3 },
+    { question: "Is Quick Sort in-place?", options: ["Yes, completely", "Yes, but O(log n) stack space", "No, O(n) extra", "No, O(n²) extra"], answer: 1 },
+  ],
+  heap: [
+    { question: "What data structure does Heap Sort use?", options: ["Stack", "Queue", "Binary Heap", "Hash Table"], answer: 2 },
+    { question: "Is Heap Sort stable?", options: ["Yes", "No", "Sometimes", "Only for integers"], answer: 1 },
+    { question: "Heap Sort's time complexity is:", options: ["O(n) all cases", "O(n log n) all cases", "O(n²) worst", "O(n log n) avg, O(n²) worst"], answer: 1 },
+  ],
+  shell: [
+    { question: "Shell Sort is an optimization of which algorithm?", options: ["Bubble Sort", "Selection Sort", "Insertion Sort", "Merge Sort"], answer: 2 },
+    { question: "What concept does Shell Sort introduce?", options: ["Pivot element", "Gap sequence", "Heap property", "Divide and conquer"], answer: 1 },
+    { question: "Is Shell Sort stable?", options: ["Yes", "No", "Depends on gap sequence", "Only for small arrays"], answer: 1 },
+  ],
+  counting: [
+    { question: "What type of data can Counting Sort handle?", options: ["Any data type", "Only integers/discrete values", "Only strings", "Only floating point"], answer: 1 },
+    { question: "Counting Sort's time complexity is:", options: ["O(n log n)", "O(n²)", "O(n + k)", "O(n)"], answer: 2 },
+    { question: "Is Counting Sort a comparison-based sort?", options: ["Yes", "No", "Sometimes", "Only for small ranges"], answer: 1 },
+  ],
+  radix: [
+    { question: "Radix Sort processes digits from:", options: ["Most significant to least", "Least significant to most", "Random order", "Middle outward"], answer: 1 },
+    { question: "Which sort does Radix Sort typically use as a subroutine?", options: ["Quick Sort", "Merge Sort", "Counting Sort", "Bubble Sort"], answer: 2 },
+    { question: "Is Radix Sort a comparison-based sort?", options: ["Yes", "No", "Depends on implementation", "Only for integers"], answer: 1 },
+  ],
+  bucket: [
+    { question: "When does Bucket Sort perform best?", options: ["Reverse sorted data", "Uniformly distributed data", "Data with many duplicates", "Already sorted data"], answer: 1 },
+    { question: "What is Bucket Sort's worst-case complexity?", options: ["O(n)", "O(n log n)", "O(n²)", "O(n + k)"], answer: 2 },
+    { question: "Bucket Sort distributes elements into:", options: ["Sub-arrays (buckets)", "A binary tree", "A hash table", "A linked list"], answer: 0 },
+  ],
 };
+

@@ -228,7 +228,7 @@ export function AppNavbar({
         initial={{ opacity: 0, y: -14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, ease: 'easeOut' }}
-        className="border-b border-border/30 bg-background/60 shadow-[0_4px_24px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.06)] backdrop-blur-3xl supports-[backdrop-filter]:bg-background/35"
+        className="nav-gradient-border bg-background/60 shadow-[0_4px_24px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] backdrop-blur-3xl supports-[backdrop-filter]:bg-background/35"
         aria-label="Primary"
       >
         <div className="mx-auto max-w-[1600px] flex h-14 items-center gap-3 px-3 sm:px-4 lg:px-6">
@@ -238,7 +238,7 @@ export function AppNavbar({
               href="/dashboard"
               className="group flex items-center gap-2 rounded-lg px-1.5 py-1 mr-1 lg:mr-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
             >
-              <span className="flex size-7 items-center justify-center rounded-lg border border-primary/35 bg-primary/20 transition-colors group-hover:bg-primary/30">
+              <span className="flex size-7 items-center justify-center rounded-lg border border-primary/35 bg-primary/20 transition-colors group-hover:bg-primary/30 logo-glow">
                 <Code2 className="size-3.5 text-primary" />
               </span>
               <span className="hidden text-sm font-bold tracking-tight text-foreground sm:block">AlgoLab</span>
@@ -259,7 +259,7 @@ export function AppNavbar({
               <Input
                 type="search"
                 placeholder="Search algorithms, datasets, reports…"
-                className="h-9 rounded-full border-border/35 bg-foreground/[0.04] pl-9 pr-4 text-[13px] transition-all duration-200 focus:bg-background/60 focus:shadow-[0_0_0_2px_rgba(var(--primary-rgb,124,58,237),0.15)] dark:bg-foreground/[0.05]"
+                className="h-9 rounded-full border-border/30 bg-foreground/[0.03] pl-9 pr-4 text-[13px] transition-all duration-300 focus:bg-background/70 focus:border-primary/30 focus:shadow-[0_0_0_3px_rgba(99,102,241,0.12)] dark:bg-foreground/[0.05] dark:focus:shadow-[0_0_0_3px_rgba(129,140,248,0.15)]"
                 aria-label="Search AlgoLab"
                 value={searchQuery}
                 autoComplete="off"
